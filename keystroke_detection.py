@@ -7,11 +7,6 @@ key_events = []
 log_file = 'real.csv'
 
 def on_press(key):
-    keyValue = None
-    try:
-        keyValue = key.char
-    except AttributeError:
-        keyValue = str(key)
     key_event = {fieldnames[0]: str(key), fieldnames[1]: time.time()}
     print(f'\n{key_event}')
     key_events.append(key_event)

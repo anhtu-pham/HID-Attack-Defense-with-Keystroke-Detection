@@ -2,6 +2,7 @@ import pandas as pd
 import sklearn 
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 
 # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
@@ -85,10 +86,27 @@ for key, values in group_data.items():
 real_X = np.array(real_X)
 fake_X = np.array(fake_X)
 
-print(real_X)
-print(fake_X)
+# print(real_X)
+# print(fake_X)
+
+real_Y = np.zeros(len(real_X))
+fake_Y = np.ones(len(fake_X))
+
+X = np.concatenate((real_X, fake_X))
+y = np.concatenate((real_Y, fake_Y))
+
+idx = np.random.permutation(len(X))
+X = X[idx]
+y = y[idx]
+
+X = X.reshape(-1,1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=1, shuffle=True)
+
+# print(real_X)
+# print(fake_X)
 
 # 2. KNN
 # Fitting to clusters
 neigh = KNeighborsClassifier(n_neighbors=3)
-
+neigh.fit(X, y)
+print(f"Mean accuracy: {neigh.score(X_test, y_test)}")

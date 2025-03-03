@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+from utils import *
 
 # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
 
@@ -13,64 +14,30 @@ real_df = pd.read_csv("real.csv")
 fake_df = pd.read_csv("fake.csv")
 frames = [real_df, fake_df]
 
-# 1. PREPROCESSING  
-# Get the time difference
-for i, f in enumerate(frames):
-    # print(f["Key"].dtype)
-    f["Duration"] = f["Timestamp"].diff()
-    f = f.drop(columns=["Key", "Timestamp"]).dropna().reset_index(drop=True)
-
-    mean = f["Duration"].mean()
-    std_dev = f["Duration"].std()
-    f["Z_score"] = (f["Duration"] - mean) / std_dev
-    frames[i] = f
-
-real_df = frames[0]
-fake_df = frames[1]
+real_df = time_difference(real_df)
+fake_df = time_difference(fake_df)
 
 # Filter out extreme values in x 
-real_df = real_df.loc[lambda df: df.Z_score < 0, :]
+# This is not a concern in testing
+real_df = real_df.loc[lambda df: df.Duration < 10, :]
 
 # Now recompile the Z score, now using median (to compute points)
-def z_score(df):
-    df = df.drop(columns="Z_score").reset_index(drop=True)
-    mean = df["Duration"].mean()
-    std_dev = df["Duration"].std()
-    df["Z_score"] = (df["Duration"] - mean) / std_dev
-    return df
-
 real_df = z_score(real_df)
 fake_df = z_score(fake_df)
 
-# Identify indices of outliers
-real_walls = real_df.index[np.abs(real_df["Z_score"]) > 1]
-fake_walls = fake_df.index[(fake_df["Z_score"]) > 0] # 
 
-# print("REAL--------------------")
-# print(real_df)
-# print("FAKE-------------------")
-# print(fake_df)
-# print(real_walls)
-# print(fake_walls)
+# Identify indices of outliers
+real_walls = identify_session(real_df, 0)
+fake_walls = identify_session(fake_df, 0)
 
 group_data = dict()
 group_data["real"] = []
 group_data["fake"] = []
 
-def generate_groups(df, walls, label):
-    floor = 0
-    group = []
+generate_groups(real_df, walls=real_walls, label='real', dict=group_data)
+generate_groups(fake_df, walls=fake_walls, label='fake', dict=group_data)
 
-    #exclusive of last element
-    for wall in walls:
-        group = df["Z_score"].iloc[floor:wall].values
-        floor = wall + 1
-        if (len(group) > 1):    # we need 2 or more data to make std > 0
-            group_data[label].append(group)
-
-generate_groups(real_df, walls=real_walls, label='real')
-generate_groups(fake_df, walls=fake_walls, label='fake')
-
+# print(group_data['real'])
 # Making the data points
 real_X = []
 fake_X = []
@@ -86,9 +53,6 @@ for key, values in group_data.items():
 real_X = np.array(real_X)
 fake_X = np.array(fake_X)
 
-# print(real_X)
-# print(fake_X)
-
 real_Y = np.zeros(len(real_X))
 fake_Y = np.ones(len(fake_X))
 
@@ -100,13 +64,25 @@ X = X[idx]
 y = y[idx]
 
 X = X.reshape(-1,1)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=1, shuffle=True)
-
-# print(real_X)
-# print(fake_X)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1, shuffle=False)
 
 # 2. KNN
 # Fitting to clusters
-neigh = KNeighborsClassifier(n_neighbors=3)
+neigh = KNeighborsClassifier(n_neighbors=1)
 neigh.fit(X, y)
-print(f"Mean accuracy: {neigh.score(X_test, y_test)}")
+print("------TEST RESULT:---------")
+print(f"Mean accuracy: {neigh.score(X_test, y_test)} \n")
+
+def predict(filepath: str):
+    pts = predict_preprocess(filepath)
+    result = neigh.predict(pts)
+    num_ones = np.count_nonzero(result)
+    flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
+
+    if not flag: 
+        print("Normal sequence")
+    else:
+        print("Abnormal behavior. Possible HID attack.")
+
+print("------REAL-TIME RESULT:---------")
+predict("test.csv")

@@ -71,4 +71,3 @@ def predict_preprocess(filepath: str):
     points = points.reshape(-1, 1) if len(points) > 1 else points.reshape(1,-1)
 
     return points
-    

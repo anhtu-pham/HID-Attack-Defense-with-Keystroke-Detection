@@ -1,5 +1,5 @@
 import pandas as pd
-import sklearn 
+# import sklearn
 import numpy as np
 
 def time_difference(f: pd.DataFrame):

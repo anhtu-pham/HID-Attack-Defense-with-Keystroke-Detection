@@ -1,5 +1,5 @@
 import pandas as pd
-import sklearn
+# import sklearn
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -43,7 +43,6 @@ class CustomKNN:
         generate_groups(real_df, walls=real_walls, label='real', dict=group_data)
         generate_groups(fake_df, walls=fake_walls, label='fake', dict=group_data)
 
-        # print(group_data['real'])
         # Making the data points
         real_X = []
         fake_X = []
@@ -70,11 +69,12 @@ class CustomKNN:
         y = y[idx]
 
         X = X.reshape(-1,1)
-        X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.3, random_state=1, shuffle=False)
+        X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=False)
 
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=1)
+        self.knn_model = KNeighborsClassifier(n_neighbors=2, algorithm='kd_tree')
         self.knn_model.fit(X_train, y_train)
+        print()
         print("-------------MODEL EVALUATION---------------")
         print(f"Mean accuracy: {self.knn_model.score(X_eval, y_eval)} \n")
         print("--------------------------------------------")
@@ -84,8 +84,4 @@ class CustomKNN:
         result = self.knn_model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
-
-        if not flag: 
-            print("Normal sequence")
-        else:
-            print("Abnormal behavior. Possible HID attack.")
+        print("Normal sequence" if not flag else "Abnormal behavior. Possible HID attack.")

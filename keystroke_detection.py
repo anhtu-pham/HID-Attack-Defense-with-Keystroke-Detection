@@ -39,9 +39,9 @@ def on_release_for_demo(key):
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
-        clear_stdin()
         custom_knn = CustomKNN()
         custom_knn.predict(demo_filepath)
+        clear_stdin()
         return False
 
 with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:

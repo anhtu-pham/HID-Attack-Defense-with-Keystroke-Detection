@@ -10,7 +10,7 @@ class CustomKNN:
     knn_model = None
 
     def __init__(self):
-        self.train("real.csv", "fake.csv")
+        self.train("data/real.csv", "data/fake.csv")
 
     def train(self, real_filepath, fake_filepath):
         # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
@@ -70,13 +70,14 @@ class CustomKNN:
         y = y[idx]
 
         X = X.reshape(-1,1)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1, shuffle=False)
+        X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.3, random_state=1, shuffle=False)
 
         # Fitting KNN to clusters
         self.knn_model = KNeighborsClassifier(n_neighbors=1)
         self.knn_model.fit(X_train, y_train)
-        print("------TEST RESULT:---------")
-        print(f"Mean accuracy: {self.knn_model.score(X_test, y_test)} \n")
+        print("-------------MODEL EVALUATION---------------")
+        print(f"Mean accuracy: {self.knn_model.score(X_eval, y_eval)} \n")
+        print("--------------------------------------------")
 
     def predict(self, filepath: str):
         pts = predict_preprocess(filepath)

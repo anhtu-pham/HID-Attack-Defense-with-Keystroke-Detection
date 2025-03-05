@@ -1,5 +1,4 @@
 import sys
-# import tty
 import termios
 from pynput import keyboard
 import time

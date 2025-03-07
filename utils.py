@@ -23,7 +23,9 @@ def z_score(df):
     return df
 
 def identify_session(df: pd.DataFrame, threshold: int):
-    return df.index[df["Z_score"] > threshold]
+    # Only accept if the second is larger than 3 secs
+    walls = df.index[(df["Z_score"] > threshold) & (df["Duration"] > 2)]
+    return walls.to_numpy()
 
 def generate_groups(df, walls, label, dict):
     floor = 0
@@ -41,6 +43,10 @@ def predict_generate_groups(df, walls):
     groups = []
     group = []
 
+    if len(walls) == 0:
+        groups = df["Z_score"].to_numpy()
+        return [groups]
+    
     #exclusive of last element
     for wall in walls:
         group = df["Z_score"].iloc[floor:wall].values
@@ -48,6 +54,9 @@ def predict_generate_groups(df, walls):
         if (len(group) > 1):    # we need 2 or more data to make std > 0
             groups.append(group)
     
+    group = df["Z_score"].iloc[floor:].values
+    groups.append(group)
+
     return groups
 
 def predict_generate_pts(group_data):
@@ -57,16 +66,16 @@ def predict_generate_pts(group_data):
         pts.append(pt)
     return pts
 
-
 def predict_preprocess(filepath: str):
     df = pd.read_csv(filepath)
+    if df.shape[0] <= 2:
+        return None
     df = time_difference(df)
     df = df.loc[lambda df: df.Duration < 10, :]
     df = z_score(df)
-    walls = identify_session(df, 0)
+    walls = identify_session(df, threshold=0)
     groups = predict_generate_groups(df, walls)
     points = predict_generate_pts(groups)
     points = np.array(points)
     points = points.reshape(-1, 1) if len(points) > 1 else points.reshape(1,-1)
-
     return points

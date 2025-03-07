@@ -82,7 +82,7 @@ class CustomKNN:
         self.y = y
 
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
+        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors)
         self.knn_model.fit(X_train, y_train)
         return self.knn_model
 
@@ -94,10 +94,13 @@ class CustomKNN:
 
     def predict(self, filepath: str):
         pts = predict_preprocess(filepath)
+        print()
+        if (pts is None):
+            print("Normal HID")
+            return
         result = self.knn_model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
-        print()
         print("Normal HID" if not flag else "Abnormal behavior. Possible HID attack.")
 
 
@@ -125,4 +128,3 @@ def main():
 #     plt.ylim(0.90, 1.0)  # Example: setting y-axis range from 0.5 to 1.0
 #     plt.grid(True)
 #     plt.show()
-

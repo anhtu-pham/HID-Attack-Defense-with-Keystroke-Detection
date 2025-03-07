@@ -3,13 +3,12 @@ import termios
 from pynput import keyboard
 import time
 import csv
-from knn import CustomKNN
+import knn
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_filepath = 'data/real.csv'
-global demo_filepath 
-demo_filepath = 'data/'
+demo_filepath = 'data/demo.csv'
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
@@ -33,21 +32,15 @@ def on_release_for_training(key):
     
 def on_release_for_demo(key):
     if key == keyboard.Key.esc:
-        with open(demo_filepath, mode='w', newline='') as file:
+        with open(demo_filepath, mode='a', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
-        custom_knn = CustomKNN()
-        custom_knn.predict(demo_filepath)
+        knn.main()
         clear_stdin()
         return False
 
-def main(output_file: str):
-    demo_filepath += output_file
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
-        listener.join()
-
-
-main("1kok")
+with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+    listener.join()

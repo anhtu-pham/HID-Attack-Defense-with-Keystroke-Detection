@@ -83,7 +83,15 @@ class CustomKNN:
         self.y = y
 
         # Fitting KNN to clusters
+<<<<<<< Updated upstream
         self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
+=======
+<<<<<<< HEAD
+        self.knn_model = KNeighborsClassifier(n_neighbors=2)
+=======
+        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
+>>>>>>> 2c008dd6b8d6cbdd063ab6fbf9356877f3a540de
+>>>>>>> Stashed changes
         self.knn_model.fit(X_train, y_train)
         return self.knn_model
 

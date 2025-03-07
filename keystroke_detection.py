@@ -32,7 +32,7 @@ def on_release_for_training(key):
     
 def on_release_for_demo(key):
     if key == keyboard.Key.esc:
-        with open(demo_filepath, mode='a', newline='') as file:
+        with open(demo_filepath, mode='w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()

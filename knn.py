@@ -16,7 +16,6 @@ class CustomKNN:
         self.y_train = None
         self.y_eval = None
 
-
     def train(self, real_filepath, fake_filepath, n_neighbors):
         # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
 
@@ -83,15 +82,7 @@ class CustomKNN:
         self.y = y
 
         # Fitting KNN to clusters
-<<<<<<< Updated upstream
         self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
-=======
-<<<<<<< HEAD
-        self.knn_model = KNeighborsClassifier(n_neighbors=2)
-=======
-        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
->>>>>>> 2c008dd6b8d6cbdd063ab6fbf9356877f3a540de
->>>>>>> Stashed changes
         self.knn_model.fit(X_train, y_train)
         return self.knn_model
 
@@ -104,18 +95,17 @@ class CustomKNN:
     def predict(self, filepath: str):
         pts = predict_preprocess(filepath)
         result = self.knn_model.predict(pts)
-        # print(result)
         num_ones = np.count_nonzero(result)
         flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
-        print("Normal sequence" if not flag else "Abnormal behavior. Possible HID attack.")
+        print()
+        print("Normal HID" if not flag else "Abnormal behavior. Possible HID attack.")
 
 
 # Demo purpose:
-def main():    
+def main():
     knn = CustomKNN()
     knn.train("data/real.csv", "data/fake.csv", n_neighbors=3)
     knn.predict("data/demo.csv")
-
 
 
 # Graph purposes:

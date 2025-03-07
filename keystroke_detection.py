@@ -8,7 +8,8 @@ from knn import CustomKNN
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_filepath = 'data/real.csv'
-demo_filepath = 'data/demo.csv'
+global demo_filepath 
+demo_filepath = 'data/'
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
@@ -43,7 +44,10 @@ def on_release_for_demo(key):
         clear_stdin()
         return False
 
-with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
-    listener.join()
+def main(output_file: str):
+    demo_filepath += output_file
+    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+        listener.join()
 
-    
+
+main("1kok")

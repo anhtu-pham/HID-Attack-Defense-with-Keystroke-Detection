@@ -91,9 +91,6 @@ class CustomKNN:
     def cross_validation(self, k=5):
         scores = cross_val_score(self.knn_model, self.X, self.y, cv=k)
         return np.mean(scores)
-        # print("-------------MODEL EVALUATION---------------")
-        # print(f"Mean accuracy: {self.knn_model.score(X_eval, y_eval)} \n")
-        # print("--------------------------------------------")
 
 
     def predict(self, filepath: str):
@@ -108,7 +105,7 @@ class CustomKNN:
 if __name__=="__main__":      
     knn = CustomKNN()
     knn.train("./data/real.csv", "data/fake.csv", n_neighbors=3)
-    
+    knn.predict("./data/demo.csv")
 
 
 

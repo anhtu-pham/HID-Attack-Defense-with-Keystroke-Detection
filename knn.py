@@ -96,16 +96,17 @@ class CustomKNN:
     def predict(self, filepath: str):
         pts = predict_preprocess(filepath)
         result = self.knn_model.predict(pts)
+        # print(result)
         num_ones = np.count_nonzero(result)
         flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
         print("Normal sequence" if not flag else "Abnormal behavior. Possible HID attack.")
 
 
 # Demo purpose:
-if __name__=="__main__":      
+def main():    
     knn = CustomKNN()
-    knn.train("./data/real.csv", "data/fake.csv", n_neighbors=3)
-    knn.predict("./data/demo.csv")
+    knn.train("data/real.csv", "data/fake.csv", n_neighbors=3)
+    knn.predict("data/demo.csv")
 
 
 

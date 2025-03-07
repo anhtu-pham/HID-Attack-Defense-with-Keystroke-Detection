@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from utils import *
 
@@ -9,9 +9,15 @@ class CustomKNN:
     knn_model = None
 
     def __init__(self):
-        self.train("data/real.csv", "data/fake.csv")
+        self.X = None
+        self.y = None
+        self.X_train = None
+        self.X_eval = None
+        self.y_train = None
+        self.y_eval = None
 
-    def train(self, real_filepath, fake_filepath):
+
+    def train(self, real_filepath, fake_filepath, n_neighbors):
         # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
 
         pd.set_option("display.max_rows", None)  # Show all rows
@@ -69,14 +75,26 @@ class CustomKNN:
 
         X = X.reshape(-1,1)
         X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=False)
+        self.X_train = X_train
+        self.X_eval = X_eval
+        self.y_train = y_train
+        self.y_eval = y_eval
+        self.X = X
+        self.y = y
 
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=2, algorithm='kd_tree')
+        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='kd_tree')
         self.knn_model.fit(X_train, y_train)
-        print()
-        print("-------------MODEL EVALUATION---------------")
-        print(f"Mean accuracy: {self.knn_model.score(X_eval, y_eval)} \n")
-        print("--------------------------------------------")
+        return self.knn_model
+
+    
+    def cross_validation(self, k=5):
+        scores = cross_val_score(self.knn_model, self.X, self.y, cv=k)
+        return np.mean(scores)
+        # print("-------------MODEL EVALUATION---------------")
+        # print(f"Mean accuracy: {self.knn_model.score(X_eval, y_eval)} \n")
+        # print("--------------------------------------------")
+
 
     def predict(self, filepath: str):
         pts = predict_preprocess(filepath)
@@ -84,3 +102,22 @@ class CustomKNN:
         num_ones = np.count_nonzero(result)
         flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
         print("Normal sequence" if not flag else "Abnormal behavior. Possible HID attack.")
+
+
+if __name__=="__main__":
+    knn_list = [CustomKNN() for n in range(7)]
+    scores = []
+    for i, knn in enumerate(knn_list):
+        knn.train("data/real.csv", "data/fake.csv", n_neighbors=i+1)
+        score = knn.cross_validation()
+        scores.append(score)
+
+    x_values = np.arange(1,8)
+    plt.plot(x_values, scores, marker='o', linestyle='-', color='b', label='KNN Scores')
+    plt.xlabel('k (neighbors)')
+    plt.ylabel('Accuracy')
+    plt.title('KNN Cross-Validation Scores')
+    plt.ylim(0.90, 1.0)  # Example: setting y-axis range from 0.5 to 1.0
+    plt.grid(True)
+    plt.show()
+

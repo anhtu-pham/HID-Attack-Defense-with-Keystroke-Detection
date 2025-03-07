@@ -96,11 +96,11 @@ class CustomKNN:
         pts = predict_preprocess(filepath)
         print()
         if (pts is None):
-            print("Normal HID")
+            print("!!")
             return
         result = self.knn_model.predict(pts)
         num_ones = np.count_nonzero(result)
-        flag = num_ones > (len(result) - num_ones)  # if there are more detection of hacking
+        flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
         print("Normal HID" if not flag else "Abnormal behavior. Possible HID attack.")
 
 
@@ -109,7 +109,6 @@ def main():
     knn = CustomKNN()
     knn.train("data/real.csv", "data/fake.csv", n_neighbors=3)
     knn.predict("data/demo.csv")
-
 
 # Graph purposes:
 # if __name__=="__main__":

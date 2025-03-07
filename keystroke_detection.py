@@ -1,19 +1,20 @@
 import sys
-import termios
+# import termios
 from pynput import keyboard
 import time
 import csv
 from knn import CustomKNN
 
+
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_filepath = 'data/real.csv'
 global demo_filepath 
-demo_filepath = 'data/'
+demo_filepath = 'data/demo.csv'
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
-    termios.tcflush(sys.stdin, termios.TCIOFLUSH)
+    # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def on_press(key):
     key_event = {fieldnames[0]: str(key), fieldnames[1]: time.time()}
@@ -44,10 +45,9 @@ def on_release_for_demo(key):
         clear_stdin()
         return False
 
-def main(output_file: str):
-    demo_filepath += output_file
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
-        listener.join()
+# def main(output_file: str):
+    
+with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+    listener.join()
 
-
-main("1kok")
+# main("1kok")

@@ -104,20 +104,29 @@ class CustomKNN:
         print("Normal sequence" if not flag else "Abnormal behavior. Possible HID attack.")
 
 
-if __name__=="__main__":
-    knn_list = [CustomKNN() for n in range(7)]
-    scores = []
-    for i, knn in enumerate(knn_list):
-        knn.train("data/real.csv", "data/fake.csv", n_neighbors=i+1)
-        score = knn.cross_validation()
-        scores.append(score)
+# Demo purpose:
+if __name__=="__main__":      
+    knn = CustomKNN()
+    knn.train("./data/real.csv", "data/fake.csv", n_neighbors=3)
+    
 
-    x_values = np.arange(1,8)
-    plt.plot(x_values, scores, marker='o', linestyle='-', color='b', label='KNN Scores')
-    plt.xlabel('k (neighbors)')
-    plt.ylabel('Accuracy')
-    plt.title('KNN Cross-Validation Scores')
-    plt.ylim(0.90, 1.0)  # Example: setting y-axis range from 0.5 to 1.0
-    plt.grid(True)
-    plt.show()
+
+
+# Graph purposes:
+# if __name__=="__main__":
+#     knn_list = [CustomKNN() for n in range(7)]
+#     scores = []
+#     for i, knn in enumerate(knn_list):
+#         knn.train("data/real.csv", "data/fake.csv", n_neighbors=i+1)
+#         score = knn.cross_validation()
+#         scores.append(score)
+
+#     x_values = np.arange(1,8)
+#     plt.plot(x_values, scores, marker='o', linestyle='-', color='b', label='KNN Scores')
+#     plt.xlabel('k (neighbors)')
+#     plt.ylabel('Accuracy')
+#     plt.title('KNN Cross-Validation Scores')
+#     plt.ylim(0.90, 1.0)  # Example: setting y-axis range from 0.5 to 1.0
+#     plt.grid(True)
+#     plt.show()
 

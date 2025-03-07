@@ -45,3 +45,5 @@ def on_release_for_demo(key):
 
 with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
     listener.join()
+
+    

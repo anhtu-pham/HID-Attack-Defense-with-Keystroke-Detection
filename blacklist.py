@@ -1,4 +1,5 @@
 import evdev
+import time
 
 def block_input_device(device_path):
     try:

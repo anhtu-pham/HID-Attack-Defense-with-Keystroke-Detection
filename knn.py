@@ -3,10 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import BaggingClassifier
 from utils import *
 
 class CustomKNN:
     knn_model = None
+    bagging_model = None
 
     def __init__(self):
         self.X = None
@@ -84,7 +86,11 @@ class CustomKNN:
         # Fitting KNN to clusters
         self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors)
         self.knn_model.fit(X_train, y_train)
-        return self.knn_model
+        # return self.knn_model
+        
+        # Try with bagging
+        self.bagging_model = BaggingClassifier(estimator=self.knn_model, n_estimators=9, random_state=42)
+        return self.bagging_model
 
     
     def cross_validation(self, k=5):
@@ -106,9 +112,9 @@ class CustomKNN:
 
 # Demo purpose:
 def main():
-    knn = CustomKNN()
-    knn.train("data/real.csv", "data/fake.csv", n_neighbors=3)
-    knn.predict("data/demo.csv")
+    model = CustomKNN()
+    model.train("data/real.csv", "data/fake.csv", n_neighbors=3)
+    model.predict("data/demo.csv")
 
 # Graph purposes:
 # if __name__=="__main__":

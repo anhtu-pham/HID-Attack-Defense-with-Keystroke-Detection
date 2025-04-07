@@ -42,6 +42,7 @@ def detect_new_device():
     for device in iter(monitor.poll, None):
         if device.action == 'add':
             print(f"New HID device connected: {device.device_path}")
+            return device.device_path
 
 
 if __name__ == "__main__":

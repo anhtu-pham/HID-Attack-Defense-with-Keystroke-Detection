@@ -1,7 +1,7 @@
 import evdev
 import time
 
-def block_input_device(device_path):
+def block_hid_device(device_path):
     try:
         device = evdev.InputDevice(device_path)
         print(f"Grabbing device: {device.name}")

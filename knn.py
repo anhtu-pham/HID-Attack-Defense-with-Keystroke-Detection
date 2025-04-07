@@ -10,15 +10,16 @@ class CustomKNN:
     knn_model = None
     bagging_model = None
 
-    def __init__(self):
+    def __init__(self, n_neighbors):
         self.X = None
         self.y = None
         self.X_train = None
         self.X_eval = None
         self.y_train = None
         self.y_eval = None
+        self.n_neighbors = n_neighbors
 
-    def train(self, real_filepath, fake_filepath, n_neighbors):
+    def train(self, real_filepath, fake_filepath):
         # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
 
         pd.set_option("display.max_rows", None)  # Show all rows
@@ -84,7 +85,7 @@ class CustomKNN:
         self.y = y
 
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=n_neighbors)
+        self.knn_model = KNeighborsClassifier(n_neighbors=self.n_neighbors)
         self.knn_model.fit(X_train, y_train)
         # return self.knn_model
         
@@ -107,14 +108,9 @@ class CustomKNN:
         result = self.knn_model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
-        print("Normal HID" if not flag else "Abnormal behavior. Possible HID attack.")
+        print("Abnormal behavior. Possible HID attack." if flag else "Normal HID")
+        return flag
 
-
-# Demo purpose:
-def main():
-    model = CustomKNN()
-    model.train("data/real.csv", "data/fake.csv", n_neighbors=3)
-    model.predict("data/demo.csv")
 
 # Graph purposes:
 # if __name__=="__main__":

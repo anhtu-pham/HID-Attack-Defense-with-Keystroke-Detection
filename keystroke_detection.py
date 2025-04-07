@@ -3,11 +3,14 @@ import termios
 from pynput import keyboard
 import time
 import csv
-import knn
+from knn import CustomKNN
+from detect_hid_window import detect_new_device
+from blacklist_window import disable_hid_device
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
-training_filepath = 'data/real.csv'
+training_real_filepath = 'data/real.csv'
+training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
 
 def clear_stdin():
@@ -19,9 +22,9 @@ def on_press(key):
     print(f'\n{key_event}')
     key_events.append(key_event)
 
-def on_release_for_training(key):
-    if key == keyboard.Key.esc:
-        with open(training_filepath, mode='a', newline='') as file:
+def on_release_for_training(stop_key):
+    if stop_key == keyboard.Key.esc:
+        with open(training_real_filepath, mode='a', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()
@@ -30,15 +33,20 @@ def on_release_for_training(key):
         clear_stdin()
         return False
     
-def on_release_for_demo(key):
-    if key == keyboard.Key.esc:
+def on_release_for_demo(stop_key):
+    if stop_key == keyboard.Key.esc:
         with open(demo_filepath, mode='w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
-        knn.main()
+        model = CustomKNN(n_neighbors=3)
+        model.train(training_real_filepath, training_fake_filepath)
+        if model.predict(demo_filepath):
+            suspicious_device = detect_new_device()
+            if suspicious_device is not None:
+                disable_hid_device(suspicious_device)
         clear_stdin()
         return False
 

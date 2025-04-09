@@ -38,6 +38,7 @@ class RealTimeHIDDetector:
         self.knn_model = custom_knn.knn_model
         return self.knn_model
     
+    # AI code not touching atm
     def save_model(self, filepath):
         import joblib
         joblib.dump(self.knn_model, filepath)

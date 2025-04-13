@@ -118,7 +118,6 @@ class CustomKNN:
         result = self.model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
-        print("Abnormal behavior. Possible HID attack." if flag else "Normal HID")
         return flag
 
 

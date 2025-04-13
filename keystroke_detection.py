@@ -11,6 +11,7 @@ key_events = []
 training_real_filepath = 'data/real.csv'
 training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
+max_iter = 4
 check_new_device = True
 hid_ids = detect_hid_devices()
 added_hid_ids = None
@@ -51,11 +52,19 @@ def on_release_for_demo(stop_key):
             for key_event in key_events:
                 writer.writerow(key_event)
         model = CustomKNN(n_neighbors=3, n_bagging=9)
-        model.train(training_real_filepath, training_fake_filepath)
-        if model.predict("bagging", demo_filepath):
+        flag = False
+        num_iter = 0
+        while not flag and num_iter < max_iter:
+            model.train(training_real_filepath, training_fake_filepath)
+            flag = model.predict("bagging", demo_filepath)
+            num_iter += 1
+        if flag:
+            print("Abnormal behavior detected. Possible HID attack.")
             if added_hid_ids is not None:
                 print("Can blacklist now")
                 # blacklist_hid_devices(added_hid_ids)
+        else:
+            print("Abnormal behavior not detected yet.")
         clear_stdin()
         return False
 

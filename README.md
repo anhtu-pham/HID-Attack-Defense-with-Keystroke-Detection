@@ -10,4 +10,6 @@ Python version: 3.12
 
 Install pip: https://pip.pypa.io/en/stable/installation/
 
-Install pandas, matplotlib, scikit-learn, pynput
+Install through pip: pandas, matplotlib, scikit-learn, pynput, hid
+
+Install hidapi backend: put files from hid_api_dependency\windows to Windows\System32

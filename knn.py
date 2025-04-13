@@ -96,8 +96,8 @@ class CustomKNN:
         # return self.knn_model
 
         # Try with bagging
-        self.bagging_model = BaggingClassifier(
-            estimator=self.knn_model, n_estimators=self.n_bagging, random_state=42)
+        self.bagging_model = BaggingClassifier(estimator=self.knn_model, n_estimators=self.n_bagging, random_state=42)
+        self.bagging_model.fit(X_train, y_train)
         return self.bagging_model
 
     def cross_validation(self, model, k=5):
@@ -129,7 +129,7 @@ class CustomKNN:
 # Graph purposes:
 if __name__=="__main__":
     # Test bagging
-    bagging = CustomKNN(n_neighbors=5, n_bagging=3)
+    bagging = CustomKNN(n_neighbors=5, n_bagging=9)
     bagging.train("data/real.csv", "data/fake.csv")
     score = bagging.cross_validation("bagging")
     print(f"Bagging Score: {score}")

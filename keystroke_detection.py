@@ -3,35 +3,32 @@ import sys
 from pynput import keyboard
 import time
 import csv
-import detect_hid_window
 from knn import CustomKNN
-from detect_hid_window import detect_devices
-from blacklist_window import disable_hid_device 
+from hid_handling import detect_hid_devices, blacklist_hid_devices
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_real_filepath = 'data/real.csv'
 training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
-has_new_device = True
-device_list = detect_devices()
+check_new_device = True
+hid_ids = detect_hid_devices()
+added_hid_ids = None
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
     # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def on_press(key):
-    global has_new_device
+    global check_new_device, added_hid_ids
     key_event = {fieldnames[0]: str(key), fieldnames[1]: time.time()}
     print(f'\n{key_event}')
     key_events.append(key_event)
-    if has_new_device:
-        new_device_list = detect_devices()
-        added_devices = list(set(new_device_list) - set(device_list))
-        if added_devices:
-            for device in added_devices:
-                print(f"New HID Device Detected: {device}")
-        has_new_device = False
+    if check_new_device:
+        new_hid_ids = detect_hid_devices()
+        added_hid_ids = list(set(new_hid_ids) - set(hid_ids))
+        print("ADDED", added_hid_ids)
+        check_new_device = False
 
 def on_release_for_training(stop_key):
     if stop_key == keyboard.Key.esc:
@@ -45,6 +42,7 @@ def on_release_for_training(stop_key):
         return False
     
 def on_release_for_demo(stop_key):
+    global added_hid_ids
     if stop_key == keyboard.Key.esc:
         with open(demo_filepath, mode='w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -55,11 +53,12 @@ def on_release_for_demo(stop_key):
         model = CustomKNN(n_neighbors=3, n_bagging=9)
         model.train(training_real_filepath, training_fake_filepath)
         if model.predict("bagging", demo_filepath):
-            suspicious_device = detect_new_device()
-            if suspicious_device is not None:
-                disable_hid_device(suspicious_device)
+            if added_hid_ids is not None:
+                print("Can blacklist now")
+                # blacklist_hid_devices(added_hid_ids)
         clear_stdin()
         return False
 
-with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
-    listener.join()
+if __name__ == "__main__":
+    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+        listener.join()

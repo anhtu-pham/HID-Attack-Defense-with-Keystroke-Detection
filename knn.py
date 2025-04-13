@@ -50,10 +50,8 @@ class CustomKNN:
         group_data["real"] = []
         group_data["fake"] = []
 
-        generate_groups(real_df, walls=real_walls,
-                        label='real', dict=group_data)
-        generate_groups(fake_df, walls=fake_walls,
-                        label='fake', dict=group_data)
+        generate_groups(real_df, walls=real_walls, label='real', dict=group_data)
+        generate_groups(fake_df, walls=fake_walls, label='fake', dict=group_data)
 
         # Making the data points
         real_X = []
@@ -91,14 +89,12 @@ class CustomKNN:
         self.y = y
 
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=self.n_neighbors)
-        self.knn_model.fit(X_train, y_train)
-        # return self.knn_model
+        self.knn_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, algorithm="kd_tree")
+        self.knn_model.fit(X, y)
 
         # Try with bagging
         self.bagging_model = BaggingClassifier(estimator=self.knn_model, n_estimators=self.n_bagging, random_state=42)
-        self.bagging_model.fit(X_train, y_train)
-        return self.bagging_model
+        self.bagging_model.fit(X, y)
 
     def cross_validation(self, model, k=5):
         if model == "bagging":
@@ -110,15 +106,15 @@ class CustomKNN:
 
 
     def predict(self, model, filepath: str):
-        if model == "bagging": 
-            self.model = self.bagging_model
-        elif model == "knn":
-            self.model = self.knn_model
         pts = predict_preprocess(filepath)
         print()
         if (pts is None):
             print("!!")
             return
+        if model == "bagging": 
+            self.model = self.bagging_model
+        elif model == "knn":
+            self.model = self.knn_model
         result = self.model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking

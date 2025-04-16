@@ -68,8 +68,13 @@ def predict_generate_pts(group_data):
 
 def predict_preprocess(filepath: str):
     df = pd.read_csv(filepath)
+
+    # Check if the file is empty
     if df.shape[0] <= 2:
         return None
+    
+    # Process the sessions
+    
     df = time_difference(df)
     df = df.loc[lambda df: df.Duration < 10, :]
     df = z_score(df)

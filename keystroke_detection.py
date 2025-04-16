@@ -74,5 +74,5 @@ def on_release_for_demo(stop_key):
         return False
 
 if __name__ == "__main__":
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_training) as listener:
+    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
         listener.join()

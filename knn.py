@@ -108,9 +108,8 @@ class CustomKNN:
     def predict(self, model, filepath: str):
         pts = predict_preprocess(filepath)
         print()
-        if (pts is None):
-            print("!!")
-            return
+        if (pts.size <= 0):
+            return False
         if model == "bagging": 
             self.model = self.bagging_model
         elif model == "knn":

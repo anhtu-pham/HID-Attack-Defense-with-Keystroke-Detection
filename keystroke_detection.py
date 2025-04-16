@@ -33,7 +33,7 @@ def on_press(key):
 
 def on_release_for_training(stop_key):
     if stop_key == keyboard.Key.esc:
-        with open(training_real_filepath, mode='a', newline='') as file:
+        with open(training_fake_filepath, mode='a', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()
@@ -51,7 +51,7 @@ def on_release_for_demo(stop_key):
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
-        model = CustomKNN(n_neighbors=3, n_bagging=9)
+        model = CustomKNN(n_neighbors=3, n_bagging=2)
         flag = False
         num_iter = 0
         while not flag and num_iter < max_iter:

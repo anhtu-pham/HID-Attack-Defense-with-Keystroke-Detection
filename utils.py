@@ -8,7 +8,6 @@ def time_difference(f: pd.DataFrame):
     mean = f["Duration"].mean()
     std_dev = f["Duration"].std()
     f["Z_score"] = (f["Duration"] - mean) / std_dev
-
     return f
 
 def min_max_scale(arr):
@@ -75,7 +74,8 @@ def predict_preprocess(filepath: str):
     df = df.loc[lambda df: df.Duration < 10, :]
     df = z_score(df)
     print(f"DF {df}")
-    walls = identify_session(df, threshold=0)
+
+    walls = identify_session(df, threshold=3)
     print(f"WALLS {walls}")
     groups = predict_generate_groups(df, walls)
     print(f"groups: {groups}")

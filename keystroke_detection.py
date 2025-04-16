@@ -11,29 +11,34 @@ key_events = []
 training_real_filepath = 'data/real.csv'
 training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
+prev_timestamp = None
 max_iter = 4
 check_new_device = True
 hid_ids = detect_hid_devices()
 added_hid_ids = None
+session_threshold = 3
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
     # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def on_press(key):
-    global check_new_device, added_hid_ids
-    key_event = {fieldnames[0]: str(key), fieldnames[1]: time.time()}
+    global check_new_device, added_hid_ids, prev_timestamp
+    current_timestamp = time.time()
+    if (prev_timestamp == None or current_timestamp - prev_timestamp > session_threshold):
+        key_events.append({fieldnames[0]: None, fieldnames[1]: -1})
+    key_event = {fieldnames[0]: str(key), fieldnames[1]: current_timestamp}
     print(f'\n{key_event}')
     key_events.append(key_event)
+    prev_timestamp = current_timestamp
     if check_new_device:
         new_hid_ids = detect_hid_devices()
         added_hid_ids = list(set(new_hid_ids) - set(hid_ids))
-        print("ADDED", added_hid_ids)
         check_new_device = False
 
 def on_release_for_training(stop_key):
     if stop_key == keyboard.Key.esc:
-        with open(training_fake_filepath, mode='a', newline='') as file:
+        with open(training_real_filepath, mode='a', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
                 writer.writeheader()
@@ -69,5 +74,5 @@ def on_release_for_demo(stop_key):
         return False
 
 if __name__ == "__main__":
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+    with keyboard.Listener(on_press=on_press, on_release=on_release_for_training) as listener:
         listener.join()

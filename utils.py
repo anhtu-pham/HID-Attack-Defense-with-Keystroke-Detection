@@ -5,7 +5,7 @@ def time_difference(f: pd.DataFrame):
     f["Duration"] = f["Timestamp"].diff()
     f = f.drop(columns=["Key", "Timestamp"]).dropna().reset_index(drop=True)
 
-    mean = f["Duration"].mean()
+    mean = f["Duration"].median()
     std_dev = f["Duration"].std()
     f["Z_score"] = (f["Duration"] - mean) / std_dev
     return f

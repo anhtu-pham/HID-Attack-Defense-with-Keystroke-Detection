@@ -25,26 +25,17 @@ class CustomKNN:
     def train(self, real_filepath, fake_filepath):
         # CONVENTION: 1 IS ATTACK, 0 IS NORMAL
 
-        pd.set_option("display.max_rows", None)  # Show all rows
-
         real_df = pd.read_csv(real_filepath)
         fake_df = pd.read_csv(fake_filepath)
-        frames = [real_df, fake_df]
 
-        real_df = time_difference(real_df)
-        fake_df = time_difference(fake_df)
+        # real_df = time_difference(real_df)
+        # fake_df = time_difference(fake_df)
 
-        # Filter out extreme values in x
-        # This is not a concern in testing
-        real_df = real_df.loc[lambda df: df.Duration < 10, :]
-
-        # Now recompile the Z score, now using median (to compute points)
-        real_df = z_score(real_df)
-        fake_df = z_score(fake_df)
-
-        # Identify indices of outliers
-        real_walls = identify_session(real_df, 0)
-        fake_walls = identify_session(fake_df, 0)
+        # Identify indices of session walls
+        real_walls = identify_session(real_df)
+        fake_walls = identify_session(fake_df)
+        # print(f"REAL WALLS {real_walls}")
+        # print(f"FAKE WALLS {fake_walls}")
 
         group_data = dict()
         group_data["real"] = []
@@ -53,6 +44,9 @@ class CustomKNN:
         generate_groups(real_df, walls=real_walls, label='real', dict=group_data)
         generate_groups(fake_df, walls=fake_walls, label='fake', dict=group_data)
 
+        # print(f"GROUP DATA real {len(group_data['real'])}")
+
+        # After generating sessions, we need to calculate the duration 
         # Making the data points
         real_X = []
         fake_X = []
@@ -67,6 +61,8 @@ class CustomKNN:
 
         real_X = np.array(real_X)
         fake_X = np.array(fake_X)
+        # print(f"REAL X {real_X}")
+        # print(f"FAKE X {fake_X}")
 
         real_Y = np.zeros(len(real_X))
         fake_Y = np.ones(len(fake_X))
@@ -117,25 +113,45 @@ class CustomKNN:
         result = self.model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
+        print(f"RESULT {flag}")
         return flag
 
 
 # Graph purposes:
 if __name__=="__main__":
-    # Test bagging
-    bagging = CustomKNN(n_neighbors=5, n_bagging=9)
-    bagging.train("data/real.csv", "data/fake.csv")
-    score = bagging.cross_validation("bagging")
-    print(f"Bagging Score: {score}")
+    pd.set_option("display.max_rows", None)  # Show all rows
 
-    baggings = [CustomKNN(n_neighbors=5, n_bagging=n) for n in range(1, 15)]
-    scores = []
-    for i, bag in enumerate(baggings):
-        bag.train("data/real.csv", "data/fake.csv")
-        score = bag.cross_validation("bagging")
-        scores.append(score)
-    print("Bagging Scores:")
-    print(scores)
+    test = CustomKNN(n_neighbors=5, n_bagging=3)
+    test.train("data/real.csv", "data/fake.csv")
+    test.predict("knn","data/real1.csv")
+
+    # real_df = pd.read_csv("data/real.csv")
+    # real_df = time_difference(real_df)
+    # print(real_df[1:100])
+    # fake_df = pd.read_csv("data/fake.csv")
+    # fake_df = time_difference(fake_df)
+    # print(fake_df)
+
+    # knn = CustomKNN(n_neighbors=5, n_bagging=1)
+    # knn.train("data/real.csv", "data/fake.csv")
+    # score = knn.cross_validation("knn")
+    # print(f"KNN Score: {score}")
+
+
+    # # Test bagging
+    # bagging = CustomKNN(n_neighbors=5, n_bagging=3)
+    # bagging.train("data/real.csv", "data/fake.csv")
+    # score = bagging.cross_validation("bagging")
+    # print(f"Bagging Score: {score}")
+
+    # baggings = [CustomKNN(n_neighbors=5, n_bagging=n) for n in range(1, 15)]
+    # scores = []
+    # for i, bag in enumerate(baggings):
+    #     bag.train("data/real.csv", "data/fake.csv")
+    #     score = bag.cross_validation("bagging")
+    #     scores.append(score)
+    # print("Bagging Scores:")
+    # print(scores)
 
     # x_values = np.arange(1, len(scores) + 1)
     # plt.plot(x_values, scores, marker='o', linestyle='-', color='b', label='KNN Scores')
@@ -146,14 +162,15 @@ if __name__=="__main__":
     # plt.grid(True)
     # plt.show()
 
-    knn_list = [CustomKNN(n_neighbors=n, n_bagging=1) for n in range(1,11)]
-    scores = []
-    for i, knn in enumerate(knn_list):
-        knn.train("data/real.csv", "data/fake.csv")
-        score = knn.cross_validation("knn")
-        scores.append(score)
-    print("KNN Scores:")
-    print(scores)
+    # knn_list = [CustomKNN(n_neighbors=n, n_bagging=1) for n in range(1,11)]
+    # scores = []
+    # for i, knn in enumerate(knn_list):
+    #     knn.train("data/real.csv", "data/fake.csv")
+    #     score = knn.cross_validation("knn")
+    #     scores.append(score)
+    # print("KNN Scores:")
+    # print(scores)
+
 
     # x_values = np.arange(1,8)
     # plt.plot(x_values, scores, marker='o', linestyle='-', color='b', label='KNN Scores')

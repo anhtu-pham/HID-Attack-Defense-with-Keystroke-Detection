@@ -8,7 +8,7 @@ from hid_handling import detect_hid_devices, blacklist_hid_devices
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
-training_real_filepath = 'data/real.csv'
+training_real_filepath = 'data/real1.csv'
 training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
 prev_timestamp = None
@@ -74,5 +74,5 @@ def on_release_for_demo(stop_key):
         return False
 
 if __name__ == "__main__":
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
+    with keyboard.Listener(on_press=on_press, on_release=on_release_for_training) as listener:
         listener.join()

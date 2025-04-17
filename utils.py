@@ -1,63 +1,55 @@
 import pandas as pd
 import numpy as np
 
-def time_difference(f: pd.DataFrame):
-    f["Duration"] = f["Timestamp"].diff()
-    f = f.drop(columns=["Key", "Timestamp"]).dropna().reset_index(drop=True)
-
-    mean = f["Duration"].median()
-    std_dev = f["Duration"].std()
-    f["Z_score"] = (f["Duration"] - mean) / std_dev
-    return f
-
-def min_max_scale(arr):
-    return (arr - arr.min()) / (arr.max() - arr.min())
-
-def z_score(df):
-    df = df.drop(columns="Z_score").reset_index(drop=True)
-    mean = df["Duration"].median()
-    std_dev = df["Duration"].std()
-    df["Duration_Scaled"] = min_max_scale(df["Duration"])
-    df["Z_score"] = (df["Duration_Scaled"] - mean) / std_dev
-    return df
-
-def identify_session(df: pd.DataFrame, threshold: int):
-    # Only accept if the second is larger than 3 secs
-    walls = df.index[(df["Z_score"] > threshold)]
+def identify_session(df: pd.DataFrame):
+    walls = df.index[(df["Timestamp"]== -1)]
     return walls.to_numpy()
 
 def generate_groups(df, walls, label, dict):
     floor = 0
-    group = []
+    walls = np.append(walls, len(df))
 
     #exclusive of last element
     for wall in walls:
-        group = df["Z_score"].iloc[floor:wall].values
+        group = df["Timestamp"].iloc[floor+1:wall].values
+        group = np.diff(group)
         floor = wall + 1
         if (len(group) > 1):    # we need 2 or more data to make std > 0
-            dict[label].append(group)
+            groups = split_to_smaller_groups(group, 20, 5)
+            for group in groups:
+                dict[label].append(group)
 
 def predict_generate_groups(df, walls):
     floor = 0
-    groups = []
-    group = []
-
-    if len(walls) == 0:
-        groups = df["Z_score"].to_numpy()
-        return [groups]
-    
+    all_groups = []
+    walls = np.append(walls, len(df))
     #exclusive of last element
     for wall in walls:
-        group = df["Z_score"].iloc[floor:wall].values
+        group = df["Timestamp"].iloc[floor+1:wall].values
+        group = np.diff(group)
         floor = wall + 1
         if (len(group) > 1):    # we need 2 or more data to make std > 0
-            groups.append(group)
-    
-    group = df["Z_score"].iloc[floor:].values
-    if (len(group) > 1):
-        groups.append(group)
+            groups = split_to_smaller_groups(group, 20, 5)
+            for group in groups:
+                all_groups.append(group)
+
+    return all_groups
+
+def split_to_smaller_groups(group, size = 20, min_size = 5):
+    groups = []
+    for i in range(0, len(group), size):
+        groups.append(group[i:i+size])
+    # If the last group is smaller than min_size, we need to merge it with the previous group
+    if len(groups) > 1 and len(groups[-1]) < min_size:
+        groups[-2] = np.concatenate((groups[-2], groups[-1]))
+        groups.pop()
+
+    # If the session is smaller than the size, we don't need to split it
+    if len(groups) == 1 and len(groups[0]) < size:
+        return groups
 
     return groups
+
 
 def predict_generate_pts(group_data):
     pts = []
@@ -67,26 +59,22 @@ def predict_generate_pts(group_data):
     return pts
 
 def predict_preprocess(filepath: str):
+    print("________________________________________")
     df = pd.read_csv(filepath)
 
     # Check if the file is empty
     if df.shape[0] <= 2:
         return None
     
-    # Process the sessions
-    
-    df = time_difference(df)
-    df = df.loc[lambda df: df.Duration < 10, :]
-    df = z_score(df)
-    print(f"DF {df}")
+    # Locate the sessions
+    walls = identify_session(df)
+    # print(f"WALLS {walls}")
 
-    walls = identify_session(df, threshold=3)
-    print(f"WALLS {walls}")
     groups = predict_generate_groups(df, walls)
-    print(f"groups: {groups}")
+    # print(f"groups: {groups}")
     points = predict_generate_pts(groups)
     points = np.array(points)
-    print(f"points: {points}")
+    # print(f"points: {points}")
 
     points = points.reshape(-1, 1) if len(points) > 1 else points.reshape(1,-1)
     return points

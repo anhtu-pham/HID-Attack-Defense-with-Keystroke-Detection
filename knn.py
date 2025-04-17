@@ -123,7 +123,7 @@ if __name__=="__main__":
 
     test = CustomKNN(n_neighbors=5, n_bagging=3)
     test.train("data/real.csv", "data/fake.csv")
-    test.predict("knn","data/real1.csv")
+    test.predict("bagging","data/demo.csv")
 
     # real_df = pd.read_csv("data/real.csv")
     # real_df = time_difference(real_df)

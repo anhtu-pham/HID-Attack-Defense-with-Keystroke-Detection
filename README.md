@@ -10,6 +10,15 @@ Python version: 3.12
 
 Install pip: https://pip.pypa.io/en/stable/installation/
 
-Install through pip: pandas, matplotlib, scikit-learn, pynput, hid
+Install through pip: pandas, matplotlib, scikit-learn, pynput, pyudev
 
-Install hidapi backend: put files from hid_api_dependency\windows to Windows\System32
+# Edit the udev rule file
+sudo nano /etc/udev/rules.d/99-disable-keyboard.rules
+
+# Comment out or remove the lines for your keyboard
+# Save and exit
+
+# Reload udev rules
+sudo udevadm control --reload
+
+# Unplug and reconnect your keyboard

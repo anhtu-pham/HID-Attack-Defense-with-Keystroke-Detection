@@ -278,17 +278,3 @@ def blacklist_hid_device(device_info):
     else:
         print(f"Failed to disable keyboard")
         return False
-
-if __name__ == "__main__":
-    # Check if running as root
-    if os.geteuid() != 0:
-        print("This script needs to be run with root privileges.")
-        exit(1)
-    
-    try:
-        monitor_keyboards()
-    except KeyboardInterrupt:
-        print("\nKeyboard monitoring service stopped")
-    except Exception as e:
-        logging.error(f"Service error: {e}")
-        print(f"An error occurred: {e}")

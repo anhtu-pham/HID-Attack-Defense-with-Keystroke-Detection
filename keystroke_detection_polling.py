@@ -1,6 +1,6 @@
 import sys
 import os
-# import termios
+import termios
 from pynput import keyboard
 import time
 import csv
@@ -17,19 +17,9 @@ max_iter = 4
 added_device_info = None
 session_threshold = 3
 
-fieldnames = ["Key", "Timestamp"]
-key_events = []
-training_real_filepath = 'data/real.csv'
-training_fake_filepath = 'data/fake.csv'
-demo_filepath = 'data/demo.csv'
-prev_timestamp = None
-max_iter = 4
-added_device_info = None
-session_threshold = 3
-
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
-    # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
+    termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def on_press(key):
     global prev_timestamp

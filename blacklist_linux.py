@@ -221,8 +221,18 @@ def is_duplicate_device(device_info):
     recently_disabled[fingerprint] = current_time
     return False
 
-def monitor_keyboards():
-    """Monitor for new keyboard connections"""
+def detect_keyboards_and_callback(callback_function=None, stop_on_detection=False):
+    """
+    Monitor for new keyboard connections with optional callback
+    
+    Args:
+        callback_function (callable, optional): Function to call when a new keyboard is detected.
+                                               This function will receive the device_info dictionary.
+        stop_on_detection (bool, optional): If True, stop monitoring after first detection and callback
+    
+    Returns:
+        None
+    """
     context = pyudev.Context()
     monitor = pyudev.Monitor.from_netlink(context)
     monitor.filter_by(subsystem='input')
@@ -245,11 +255,29 @@ def monitor_keyboards():
             logging.warning(f"New keyboard detected: {device_info['name']} ({device_info['vendor_id']}:{device_info['product_id']})")
             print(f"New keyboard detected - {device_info['name']}")
             
-            # Try to disable it by unbinding
-            if unbind_device(device_info):
-                print(f"Keyboard successfully disabled")
-                # Create persistent rule
-                create_udev_rule(device_info)
+            # If callback is provided, call it with the device info
+            if callback_function:
+                callback_function(device_info)
+                
+                # If stop_on_detection is True, break the loop after first detection
+                if stop_on_detection:
+                    break
+
+def blacklist_hid_device(device_info):
+    """Disable and blacklist a keyboard based on its device info"""
+    print(f"Attempting to blacklist keyboard: {device_info['name']}")
+    # Try to disable it by unbinding
+    if unbind_device(device_info):
+        print(f"Keyboard successfully disabled")
+        # Create persistent rule
+        if create_udev_rule(device_info):
+            print(f"Permanent udev rule created to block this device")
+        else:
+            print(f"Failed to create permanent udev rule")
+        return True
+    else:
+        print(f"Failed to disable keyboard")
+        return False
 
 if __name__ == "__main__":
     # Check if running as root

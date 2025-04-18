@@ -3,8 +3,7 @@ import sys
 from pynput import keyboard
 import time
 import csv
-from knn import CustomKNN
-from hid_handling import detect_hid_devices, blacklist_hid_devices
+from ML_model import CustomMLModel
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
@@ -13,8 +12,6 @@ training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
 prev_timestamp = None
 max_iter = 4
-check_new_device = True
-hid_ids = detect_hid_devices()
 added_hid_ids = None
 session_threshold = 3
 
@@ -31,10 +28,6 @@ def on_press(key):
     print(f'\n{key_event}')
     key_events.append(key_event)
     prev_timestamp = current_timestamp
-    if check_new_device:
-        new_hid_ids = detect_hid_devices()
-        added_hid_ids = list(set(new_hid_ids) - set(hid_ids))
-        check_new_device = False
 
 def on_release_for_training(stop_key):
     if stop_key == keyboard.Key.esc:
@@ -56,12 +49,12 @@ def on_release_for_demo(stop_key):
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
-        model = CustomKNN(n_neighbors=3, n_bagging=2)
+        model = CustomMLModel(model_name="bagging", n_neighbors=3, n_bagging=2)
         flag = False
         num_iter = 0
         while not flag and num_iter < max_iter:
             model.train(training_real_filepath, training_fake_filepath)
-            flag = model.predict("bagging", demo_filepath)
+            flag = model.predict(demo_filepath)
             num_iter += 1
         if flag:
             print("Abnormal behavior detected. Possible HID attack.")

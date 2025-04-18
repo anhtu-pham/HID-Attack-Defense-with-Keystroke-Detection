@@ -7,18 +7,17 @@ from sklearn.ensemble import BaggingClassifier
 from utils import *
 
 
-class CustomKNN:
-    knn_model = None
-    bagging_model = None
+class CustomMLModel:
     model = None  # to choose the model to use
 
-    def __init__(self, n_neighbors, n_bagging):
+    def __init__(self, model_name, n_neighbors=None, n_bagging=None):
         self.X = None
         self.y = None
         self.X_train = None
         self.X_eval = None
         self.y_train = None
         self.y_eval = None
+        self.model_name = model_name
         self.n_neighbors = n_neighbors
         self.n_bagging = n_bagging
 
@@ -83,33 +82,29 @@ class CustomKNN:
         self.y_eval = y_eval
         self.X = X
         self.y = y
-
+        
         # Fitting KNN to clusters
-        self.knn_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, algorithm="kd_tree")
-        self.knn_model.fit(X, y)
+        knn_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, algorithm="kd_tree")
+        knn_model.fit(X, y)
 
-        # Try with bagging
-        self.bagging_model = BaggingClassifier(estimator=self.knn_model, n_estimators=self.n_bagging, random_state=42)
-        self.bagging_model.fit(X, y)
+        if self.model_name == "knn":
+            self.model = knn_model
+        else:
+            # Try with bagging
+            bagging_model = BaggingClassifier(estimator=knn_model, n_estimators=self.n_bagging, random_state=42)
+            bagging_model.fit(X, y)
+            self.model = bagging_model
 
-    def cross_validation(self, model, k=5):
-        if model == "bagging":
-            self.model = self.bagging_model
-        elif model == "knn":
-            self.model = self.knn_model
+    def cross_validation(self, k=5):
         scores = cross_val_score(self.model, self.X, self.y, cv=k)
         return np.mean(scores)
 
 
-    def predict(self, model, filepath: str):
+    def predict(self, filepath: str):
         pts = predict_preprocess(filepath)
-        print()
+        # print()
         if (pts.size <= 0):
             return False
-        if model == "bagging": 
-            self.model = self.bagging_model
-        elif model == "knn":
-            self.model = self.knn_model
         result = self.model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
@@ -121,9 +116,9 @@ class CustomKNN:
 if __name__=="__main__":
     pd.set_option("display.max_rows", None)  # Show all rows
 
-    test = CustomKNN(n_neighbors=5, n_bagging=3)
+    test = CustomMLModel("bagging", n_neighbors=5, n_bagging=3)
     test.train("data/real.csv", "data/fake.csv")
-    test.predict("bagging","data/demo.csv")
+    test.predict("data/demo.csv")
 
     # real_df = pd.read_csv("data/real.csv")
     # real_df = time_difference(real_df)
@@ -132,23 +127,23 @@ if __name__=="__main__":
     # fake_df = time_difference(fake_df)
     # print(fake_df)
 
-    # knn = CustomKNN(n_neighbors=5, n_bagging=1)
+    # knn = CustomMLModel("knn", n_neighbors=5, n_bagging=1)
     # knn.train("data/real.csv", "data/fake.csv")
-    # score = knn.cross_validation("knn")
+    # score = knn.cross_validation()
     # print(f"KNN Score: {score}")
 
 
     # # Test bagging
-    # bagging = CustomKNN(n_neighbors=5, n_bagging=3)
+    # bagging = CustomMLModel("bagging", n_neighbors=5, n_bagging=3)
     # bagging.train("data/real.csv", "data/fake.csv")
-    # score = bagging.cross_validation("bagging")
+    # score = bagging.cross_validation()
     # print(f"Bagging Score: {score}")
 
-    # baggings = [CustomKNN(n_neighbors=5, n_bagging=n) for n in range(1, 15)]
+    # baggings = [CustomMLModel("bagging", n_neighbors=5, n_bagging=n) for n in range(1, 15)]
     # scores = []
     # for i, bag in enumerate(baggings):
     #     bag.train("data/real.csv", "data/fake.csv")
-    #     score = bag.cross_validation("bagging")
+    #     score = bag.cross_validation()
     #     scores.append(score)
     # print("Bagging Scores:")
     # print(scores)
@@ -162,11 +157,11 @@ if __name__=="__main__":
     # plt.grid(True)
     # plt.show()
 
-    # knn_list = [CustomKNN(n_neighbors=n, n_bagging=1) for n in range(1,11)]
+    # knn_list = [CustomMLModel("knn", n_neighbors=n, n_bagging=1) for n in range(1,11)]
     # scores = []
     # for i, knn in enumerate(knn_list):
     #     knn.train("data/real.csv", "data/fake.csv")
-    #     score = knn.cross_validation("knn")
+    #     score = knn.cross_validation()
     #     scores.append(score)
     # print("KNN Scores:")
     # print(scores)

@@ -4,7 +4,7 @@ import os
 from pynput import keyboard
 import time
 import csv
-from knn import CustomKNN
+from ML_model import CustomMLModel
 from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
 
 fieldnames = ["Key", "Timestamp"]
@@ -66,7 +66,7 @@ def on_release_for_demo(stop_key):
             print("Not enough keystrokes collected for analysis. Continuing monitoring...")
             return False
             
-        model = CustomKNN(n_neighbors=3, n_bagging=2)
+        model = CustomMLModel(n_neighbors=3, n_bagging=2)
         flag = False
         num_iter = 0
         while not flag and num_iter < max_iter:

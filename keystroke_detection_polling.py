@@ -120,7 +120,7 @@ if __name__ == "__main__":
         
         # Start device monitoring in the main thread
         # The callback will set the added_device_info whenever a new keyboard is detected
-        detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=True)
+        detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=False)
         
     except KeyboardInterrupt:
         print("\nKeyboard monitoring service stopped")

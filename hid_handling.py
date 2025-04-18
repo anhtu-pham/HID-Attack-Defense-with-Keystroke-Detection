@@ -38,10 +38,3 @@ def blacklist_hid_devices(ids):
 
     except Exception as e:
         print(f"Message: {e}")
-
-
-
-
-
-if __name__ == "__main__":
-    disable_hid_device(HID_HARDWARE_ID)

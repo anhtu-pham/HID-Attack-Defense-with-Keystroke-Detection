@@ -37,7 +37,7 @@ def on_press(key):
     if (prev_timestamp == None or current_timestamp - prev_timestamp > session_threshold):
         key_events.append({fieldnames[0]: None, fieldnames[1]: -1})
     key_event = {fieldnames[0]: str(key), fieldnames[1]: current_timestamp}
-    print(f'\n{key_event}')
+    print(f'{fieldnames[0]}: {str(key)}, {fieldnames[1]}: {current_timestamp}')
     key_events.append(key_event)
     prev_timestamp = current_timestamp
 
@@ -63,31 +63,32 @@ def on_release_for_demo(stop_key):
                 writer.writerow(key_event)
         
         if len(key_events) < 5:
-            print("Not enough keystrokes collected for analysis. Continuing monitoring...")
-            return False
+            print("Not enough keystrokes collected for analysis. Continue monitoring...")
+            return True
             
-        model = CustomMLModel(n_neighbors=3, n_bagging=2)
+        model = CustomMLModel(model_name="bagging", n_neighbors=3, n_bagging=2)
         flag = False
         num_iter = 0
         while not flag and num_iter < max_iter:
             model.train(training_real_filepath, training_fake_filepath)
-            flag = model.predict("bagging", demo_filepath)
+            flag = model.predict(demo_filepath)
             num_iter += 1
         
+        print("________________________________________")
         if flag:
             print("Abnormal behavior detected. Possible HID attack.")
             if added_device_info is not None:
                 print(f"Blacklisting device: {added_device_info['name']} ({added_device_info['vendor_id']}:{added_device_info['product_id']})")
-                blacklist_hid_device(added_device_info)
+                # blacklist_hid_device(added_device_info)
             else:
                 print("Warning: Device info not found, cannot blacklist specific device.")
                 print("Please manually check recently connected devices.")
         else:
-            print("Abnormal behavior not detected. Continuing monitoring...")
+            print("Abnormal behavior not yet detected. Continue monitoring...")
         
         # Reset key events for next session
         key_events.clear()
-        return False  # Don't stop listener
+        return True  # Don't stop listener
 
 def monitor_keyboard_continuous():
     """
@@ -107,12 +108,7 @@ def monitor_keyboard_continuous():
     return listener
 
 if __name__ == "__main__":
-    try:
-        # Check if running as root (required for some USB operations)
-        if os.geteuid() != 0:
-            print("This script needs to be run with root privileges.")
-            exit(1)
-            
+    try:    
         print("Starting keyboard attack detection system...")
         
         # Start keystroke monitoring in a non-blocking way

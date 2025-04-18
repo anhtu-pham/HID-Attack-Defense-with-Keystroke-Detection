@@ -108,7 +108,7 @@ class CustomMLModel:
         result = self.model.predict(pts)
         num_ones = np.count_nonzero(result)
         flag = num_ones >= (len(result) - num_ones)  # if there are more detection of hacking
-        print(f"RESULT {flag}")
+        # print(f"RESULT {flag}")
         return flag
 
 

@@ -59,7 +59,6 @@ def predict_generate_pts(group_data):
     return pts
 
 def predict_preprocess(filepath: str):
-    print("________________________________________")
     df = pd.read_csv(filepath)
 
     # Check if the file is empty

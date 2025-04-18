@@ -1,6 +1,6 @@
 import sys
 import os
-import termios
+# import termios
 from pynput import keyboard
 import time
 import csv
@@ -17,9 +17,19 @@ max_iter = 4
 added_device_info = None
 session_threshold = 3
 
+fieldnames = ["Key", "Timestamp"]
+key_events = []
+training_real_filepath = 'data/real.csv'
+training_fake_filepath = 'data/fake.csv'
+demo_filepath = 'data/demo.csv'
+prev_timestamp = None
+max_iter = 4
+added_device_info = None
+session_threshold = 3
+
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
-    termios.tcflush(sys.stdin, termios.TCIOFLUSH)
+    # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def on_press(key):
     global prev_timestamp
@@ -51,6 +61,11 @@ def on_release_for_demo(stop_key):
                 writer.writeheader()
             for key_event in key_events:
                 writer.writerow(key_event)
+        
+        if len(key_events) < 5:
+            print("Not enough keystrokes collected for analysis. Continuing monitoring...")
+            return False
+            
         model = CustomKNN(n_neighbors=3, n_bagging=2)
         flag = False
         num_iter = 0
@@ -58,43 +73,55 @@ def on_release_for_demo(stop_key):
             model.train(training_real_filepath, training_fake_filepath)
             flag = model.predict("bagging", demo_filepath)
             num_iter += 1
+        
         if flag:
             print("Abnormal behavior detected. Possible HID attack.")
             if added_device_info is not None:
                 print(f"Blacklisting device: {added_device_info['name']} ({added_device_info['vendor_id']}:{added_device_info['product_id']})")
                 blacklist_hid_device(added_device_info)
             else:
-                print("Device info not found, cannot blacklist device")
+                print("Warning: Device info not found, cannot blacklist specific device.")
+                print("Please manually check recently connected devices.")
         else:
-            print("Abnormal behavior not detected yet.")
-        clear_stdin()
-        return False
+            print("Abnormal behavior not detected. Continuing monitoring...")
+        
+        # Reset key events for next session
+        key_events.clear()
+        return False  # Don't stop listener
 
-def monitor_keyboard(device_info):
+def monitor_keyboard_continuous():
     """
-    Helper method to monitor keystrokes from a specific keyboard
-    
-    Args:
-        device_info (dict): Dictionary containing information about the keyboard device
+    Continuously monitor keystrokes while allowing device detection to happen in parallel
     """
-    global added_device_info, key_events
-    added_device_info = device_info
-    key_events = []  # Reset key events for the new device
+    global key_events
+    key_events = []  # Initialize key events list
     
-    print(f"Starting keystroke monitoring for {device_info['name']}...")
-    print(f"Press ESC to stop monitoring and analyze keystrokes")
+    print("Starting continuous keystroke monitoring...")
+    print("Press ESC to analyze current keystroke patterns")
     
-    # Start a keyboard listener to monitor keystrokes
-    with keyboard.Listener(on_press=on_press, on_release=on_release_for_demo) as listener:
-        listener.join()
+    # Start a keyboard listener that doesn't block
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release_for_demo)
+    listener.daemon = True  # Make the listener a daemon thread
+    listener.start()
+    
+    return listener
 
-#IMPORTANT: run sudo
 if __name__ == "__main__":
-    try:    
+    try:
+        # Check if running as root (required for some USB operations)
+        if os.geteuid() != 0:
+            print("This script needs to be run with root privileges.")
+            exit(1)
+            
         print("Starting keyboard attack detection system...")
         
-        # Use monitor_keyboards from blacklist_linux.py with our callback function
-        detect_keyboards_and_callback(monitor_keyboard)
+        # Start keystroke monitoring in a non-blocking way
+        keyboard_listener = monitor_keyboard_continuous()
+        
+        # Start device monitoring in the main thread
+        # The callback will set the added_device_info whenever a new keyboard is detected
+        detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=True)
+        
     except KeyboardInterrupt:
         print("\nKeyboard monitoring service stopped")
     except Exception as e:

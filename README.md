@@ -19,6 +19,6 @@ sudo nano /etc/udev/rules.d/99-disable-keyboard.rules
 # Save and exit
 
 # Reload udev rules
-sudo udevadm control --reload
+sudo udevadm control --reload-rules && sudo udevadm trigger
 
-# Unplug and reconnect your keyboard
+# Unplug and reconnect your keyboard make sure the cursor is focused away from the terminal

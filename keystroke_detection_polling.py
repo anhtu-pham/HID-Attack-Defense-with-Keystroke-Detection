@@ -13,17 +13,6 @@ training_real_filepath = 'data/real.csv'
 training_fake_filepath = 'data/fake.csv'
 demo_filepath = 'data/demo.csv'
 prev_timestamp = None
-max_iter = 4
-added_device_info = None
-session_threshold = 3
-
-fieldnames = ["Key", "Timestamp"]
-key_events = []
-training_real_filepath = 'data/real.csv'
-training_fake_filepath = 'data/fake.csv'
-demo_filepath = 'data/demo.csv'
-prev_timestamp = None
-max_iter = 4
 added_device_info = None
 session_threshold = 3
 
@@ -63,28 +52,23 @@ def on_release_for_demo(stop_key):
                 writer.writerow(key_event)
         
         if len(key_events) < 5:
-            print("Not enough keystrokes collected for analysis. Continue monitoring...")
+            print("Not enough keystrokes for analysis. Continue monitoring...")
             return True
             
         model = CustomMLModel(model_name="bagging", n_neighbors=3, n_bagging=2)
-        flag = False
-        num_iter = 0
-        while not flag and num_iter < max_iter:
-            model.train(training_real_filepath, training_fake_filepath)
-            flag = model.predict(demo_filepath)
-            num_iter += 1
+        model.train(training_real_filepath, training_fake_filepath)
+        flag = model.predict(demo_filepath)
         
         print("________________________________________")
         if flag:
-            print("Abnormal behavior detected. Possible HID attack.")
+            print("Suspicious behavior is detected. Examine if there is actual HID attack...")
             if added_device_info is not None:
-                print(f"Blacklisting device: {added_device_info['name']} ({added_device_info['vendor_id']}:{added_device_info['product_id']})")
+                print(f"HID attack is detected. Blacklisting device: {added_device_info['name']} ({added_device_info['vendor_id']}:{added_device_info['product_id']})")
                 # blacklist_hid_device(added_device_info)
             else:
-                print("Warning: Device info not found, cannot blacklist specific device.")
-                print("Please manually check recently connected devices.")
+                print("HID attack is not yet detected. Continue monitoring...")
         else:
-            print("Abnormal behavior not yet detected. Continue monitoring...")
+            print("Suspicious behavior is not yet detected. Continue monitoring...")
         
         # Reset key events for next session
         key_events.clear()

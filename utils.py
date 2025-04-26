@@ -15,7 +15,7 @@ def generate_groups(df, walls, label, dict):
         group = np.diff(group)
         floor = wall + 1
         if (len(group) > 1):    # we need 2 or more data to make std > 0
-            groups = split_to_smaller_groups(group, 20, 5)
+            groups = split_to_smaller_groups(group, 20)
             for group in groups:
                 dict[label].append(group)
 
@@ -29,18 +29,18 @@ def predict_generate_groups(df, walls):
         group = np.diff(group)
         floor = wall + 1
         if (len(group) > 1):    # we need 2 or more data to make std > 0
-            groups = split_to_smaller_groups(group, 20, 5)
+            groups = split_to_smaller_groups(group, 20)
             for group in groups:
                 all_groups.append(group)
 
     return all_groups
 
-def split_to_smaller_groups(group, size = 20, min_size = 5):
+def split_to_smaller_groups(group, size = 20):
     groups = []
     for i in range(0, len(group), size):
         groups.append(group[i:i+size])
     # If the last group is smaller than min_size, we need to merge it with the previous group
-    if len(groups) > 1 and len(groups[-1]) < min_size:
+    if len(groups) > 1 and len(groups[-1]) < size / 2:
         groups[-2] = np.concatenate((groups[-2], groups[-1]))
         groups.pop()
 

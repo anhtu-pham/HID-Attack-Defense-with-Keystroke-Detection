@@ -55,7 +55,7 @@ def on_release_for_demo(stop_key):
             print("Not enough keystrokes for analysis. Continue monitoring...")
             return True
             
-        model = CustomMLModel(model_name="bagging", n_neighbors=3, n_bagging=2)
+        model = CustomMLModel(model_name="bagging", n_neighbors=3, n_bagging=3)
         model.train(training_real_filepath, training_fake_filepath)
         flag = model.predict(demo_filepath)
         

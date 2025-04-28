@@ -1,11 +1,11 @@
 # HID-Attack-Defense-with-Keystroke-Detection
 
-How to flash ESP 8266 board
-
+## How to flash ESP 8266 board
 Install driver from https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers
 
 Choose NodeMCU as board in Adruino IDE
 
+## Project Dependencies
 Python version: 3.12
 
 Libraries and modules needed: numpy, pandas, scikit-learn, pynput, pyudev, matplotlib, subprocess, csv, time, datetime

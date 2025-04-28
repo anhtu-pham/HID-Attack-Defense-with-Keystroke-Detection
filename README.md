@@ -8,17 +8,15 @@ Choose NodeMCU as board in Adruino IDE
 
 Python version: 3.12
 
-Install pip: https://pip.pypa.io/en/stable/installation/
+## How to unblock device after demo
+### Edit the udev rule file
+1. sudo nano /etc/udev/rules.d/99-disable-keyboard.rules
 
-Install through pip: pandas, matplotlib, scikit-learn, pynput, pyudev
+2. Comment out or remove the lines for your keyboard
 
-# Edit the udev rule file
-sudo nano /etc/udev/rules.d/99-disable-keyboard.rules
+3. Save and exit
 
-# Comment out or remove the lines for your keyboard
-# Save and exit
-
-# Reload udev rules
+### Reload udev rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
-# Unplug and reconnect your keyboard make sure the cursor is focused away from the terminal
+### Unplug and reconnect your keyboard

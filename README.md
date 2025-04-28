@@ -8,6 +8,8 @@ Choose NodeMCU as board in Adruino IDE
 
 Python version: 3.12
 
+Libraries and modules needed: numpy, pandas, scikit-learn, pynput, pyudev, matplotlib, subprocess, csv, time, datetime
+
 ## How to unblock device after demo
 ### Edit the udev rule file
 1. sudo nano /etc/udev/rules.d/99-disable-keyboard.rules

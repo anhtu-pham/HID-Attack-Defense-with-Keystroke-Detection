@@ -1,7 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
-  <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/linux/flutter/ephemeral/.plugin_symlinks/tray_manager/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/awesome_notifications/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/example/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/example/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_attacker_defence_app/windows/flutter/ephemeral/.plugin_symlinks/tray_manager/example/build" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_defence_ui/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_defence_ui/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/hid_defence_ui/build" />
+    </content>
     <orderEntry type="jdk" jdkName="Python 3.12 (PythonProject1)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

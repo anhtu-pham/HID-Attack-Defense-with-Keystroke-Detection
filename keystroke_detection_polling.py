@@ -5,7 +5,7 @@ from pynput import keyboard
 import time
 import csv
 from ML_model import CustomMLModel
-from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
+#from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
 
 fieldnames = ["Key", "Timestamp"]
 key_events = []
@@ -97,10 +97,9 @@ if __name__ == "__main__":
         
         # Start keystroke monitoring in a non-blocking way
         keyboard_listener = monitor_keyboard_continuous()
-        
         # Start device monitoring in the main thread
         # The callback will set the added_device_info whenever a new keyboard is detected
-        detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=False)
+       # detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=False)
         
     except KeyboardInterrupt:
         print("\nKeyboard monitoring service stopped")

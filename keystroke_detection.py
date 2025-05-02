@@ -4,7 +4,6 @@ from pynput import keyboard
 import time
 import csv
 from ML_model import CustomMLModel
-
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_real_filepath = 'data/real1.csv'
@@ -67,5 +66,6 @@ def on_release_for_demo(stop_key):
         return False
 
 if __name__ == "__main__":
+    print("PROGRAM STARTING")
     with keyboard.Listener(on_press=on_press, on_release=on_release_for_training) as listener:
         listener.join()

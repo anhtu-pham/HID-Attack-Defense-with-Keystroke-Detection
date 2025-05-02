@@ -1,125 +1,249 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:async';
+
+import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:window_manager/window_manager.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AwesomeNotifications().initialize(null, [
+    NotificationChannel(
+      channelKey: 'alerts',
+      channelName: 'Security Alerts',
+      channelDescription: 'Notification channel for HID alerts',
+    )
+  ]);
+  runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class MyApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+  State<MyApp> createState() => _MyAppState();
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class _MyAppState extends State<MyApp> with TrayListener {
+  List<String> logs = [];
+  bool isRunning = false;
+  Process? keystrokeProcess;
+  Process? knnProcess;
+  Process? blacklistProcess;
+  List<FlSpot> keyData = [];
+  int keyIndex = 0;
+  int totalKeystrokes = 0;
+  int suspiciousCount = 0;
+  int currentSecondKeyCount = 0;
+  Timer? timer;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+  void initState() {
+    super.initState();
+    trayManager.addListener(this);
+    trayManager.setIcon('assets/icon.png');
+    trayManager.setContextMenu(Menu(items: [
+      MenuItem(key: 'show', label: 'Show'),
+      MenuItem(key: 'exit', label: 'Exit')
+    ]));
+    startMonitoring();
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+    timer = Timer.periodic(Duration(seconds: 1), (_) {
+      setState(() {
+        keyData.add(FlSpot(keyIndex.toDouble(), currentSecondKeyCount.toDouble()));
+        if (keyData.length > 60) keyData.removeAt(0);
+        keyIndex++;
+        currentSecondKeyCount = 0;
+      });
     });
   }
 
+
+  void startMonitoring() async {
+    setState(() => isRunning = true);
+
+    try {
+      keystrokeProcess = await Process.start('python', ['../keystroke_detection.py']);
+      _listenToLogs(keystrokeProcess!, 'Keystroke Monitor');
+    } catch (e) {
+      _logError('Failed to start keystroke_monitor.py: $e');
+    }
+
+    // try {
+    //   knnProcess = await Process.start('python', ['../ML_model.py']);
+    //   _listenToLogs(knnProcess!, 'KNN Model');
+    // } catch (e) {
+    //   _logError('Failed to start knn_model.py: $e');
+    // }
+    //
+    // try {g
+    //   blacklistProcess = await Process.start('python', ['../blacklist_linux.py']);
+    //   _listenToLogs(blacklistProcess!, 'Blacklist Monitor');
+    // } catch (e) {
+    //   _logError('Failed to start blacklist.py: $e');
+    // }
+  }
+
+
+  void _listenToLogs(Process process, String source) {
+    process.stdout.transform(utf8.decoder).transform(LineSplitter()).listen((line) {
+      if (!mounted) return;
+      bool isKeystroke = line.contains("Key:") || RegExp(r"[a-zA-Z]'?").hasMatch(line);
+
+      if (isKeystroke) {
+        setState(() {
+          totalKeystrokes++;
+          currentSecondKeyCount++;
+        });
+      }
+
+      if (line.toLowerCase().contains("suspicious") && line.toLowerCase().contains("detected")) {
+        suspiciousCount++;
+        _showAlert("Possible HID attack detected by $source!");
+      }
+
+      setState(() {
+        logs.insert(0, "[$source] $line");
+        if (logs.length > 500) logs.removeLast();
+      });
+    }, onError: (error) {
+      _logError('Error reading logs from $source: $error');
+    });
+
+    process.stderr.transform(utf8.decoder).transform(LineSplitter()).listen((line) {
+      _logError('[$source STDERR] $line');
+    });
+  }
+
+  void _logError(String message) {
+    if (!mounted) return;
+    setState(() {
+      logs.insert(0, message);
+    });
+  }
+
+  void _showAlert(String message) {
+    AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        channelKey: 'alerts',
+        title: '🚨 HID Attack Alert',
+        body: message,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void onTrayIconMouseDown() {
+    trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) async {
+    if (menuItem.key == 'show') {
+      await windowManager.show();
+      await windowManager.focus();
+    } else if (menuItem.key == 'exit') {
+      exit(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'HID Defense',
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('🔐 HID-Attacker Defense System'),
+          actions: [
+            isRunning
+                ? TextButton(
+                onPressed: () {},
+                child: Text("🟢 Running", style: TextStyle(color: Colors.white)))
+                : TextButton(
+                onPressed: startMonitoring,
+                child: Text("Start", style: TextStyle(color: Colors.white)))
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: EdgeInsets.all(10),
+                child: ListView.builder(
+                  reverse: true,
+                  itemCount: logs.length,
+                  itemBuilder: (context, index) => Text(logs[index]),
+                ),
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Column(
+                children: [
+                  Text("🔍 Keystroke Activity Per Second", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Total Keystrokes: $totalKeystrokes | Alerts: $suspiciousCount", style: TextStyle(color: Colors.grey[700]))
+                ],
+              ),
             ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(0),
+                child: LineChart(LineChartData(
+                  minY: 0,
+                  gridData: FlGridData(show: true, drawVerticalLine: true, horizontalInterval: 1, verticalInterval: 5),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) => Text('${value.toInt()}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        reservedSize: 28,
+                      ),
+                      axisNameWidget: Padding(
+                        padding: EdgeInsets.only(bottom: 0),
+                        child: Text("Keys/sec", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                      axisNameSize: 16,
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) => Text('${value.toInt()}s', style: TextStyle(fontSize: 10)),
+                      ),
+                      axisNameWidget: Padding(
+                        padding: EdgeInsets.only(top: 0),
+                        child: Text("Seconds", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      axisNameSize: 16,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: keyData.isEmpty ? [FlSpot(0, 0)] : keyData,
+                      isCurved: true,
+                      barWidth: 3,
+                      color: Colors.green,
+                      belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
+                    )
+                  ],
+                )),
+              ),
+            )
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

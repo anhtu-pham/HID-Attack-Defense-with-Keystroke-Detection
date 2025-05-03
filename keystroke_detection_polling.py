@@ -39,7 +39,7 @@ def set_condition_every_x_ms(interval_ms):
         check_flag = True
 
 
-threading.Thread(target=set_condition_every_x_ms, args=(3000,), daemon=True).start()
+threading.Thread(target=set_condition_every_x_ms, args=(1,), daemon=True).start()
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
@@ -69,7 +69,7 @@ def on_release_for_training(stop_key):
 def on_release_for_demo(stop_key):
     global added_device_info
     global check_flag
-    if len(key_events) >= 50 or check_flag:
+    if len(key_events) >= 500 :
         if(check_flag):
             check_flag = False #Reset
         with open(demo_filepath, mode='w', newline='') as file:

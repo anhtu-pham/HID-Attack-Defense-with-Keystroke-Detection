@@ -56,6 +56,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
   List<String> logs = [];
   bool isRunning = false;
   Process? keystrokeProcess;
+  Timer? monitorTimer;
   Process? knnProcess;
   Process? blacklistProcess;
   List<int> keyCounts = List.generate(60, (_) => 0); // Growable list with 60 zeros
@@ -106,6 +107,21 @@ class _MyAppState extends State<MyApp> with TrayListener {
     } catch (e) {
       _logError('Failed to start keystroke_monitor.py: $e');
     }
+  }
+
+  void _startProcessMonitor() {
+    monitorTimer?.cancel(); // ensure no duplicate timers
+
+    monitorTimer = Timer.periodic(Duration(seconds: 3), (_) async {
+      if (keystrokeProcess == null) return;
+
+      // Check if process is still alive
+      final exited = await keystrokeProcess!.exitCode.catchError((_) => null);
+      if (exited != null && isRunning) {
+        _logError("🔁 Keystroke script stopped. Restarting...");
+        startMonitoring(); // restart the process
+      }
+    });
   }
 
   void _listenToLogs(Process process, String source) {
@@ -286,7 +302,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                         itemBuilder: (context, index) {
                           final log = logs[index];
                           final isKeystrokeLog = log.contains("Key Pressed:") || log.contains("⌨️");
-                          monitor_error = !log.toLowerCase().contains("continue") && !log.toLowerCase().contains("starting") && !isKeystrokeLog;
+                          monitor_error =  !log.toLowerCase().contains("suspicious") && !log.toLowerCase().contains("continue") && !log.toLowerCase().contains("starting") && !isKeystrokeLog;
                           return Text(
                             log,
                             style: TextStyle(

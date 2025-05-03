@@ -9,13 +9,17 @@ import threading
 from ML_model import CustomMLModel
 import logging, sys
 import json
-#from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
+from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
 
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 handler.flush = sys.stdout.flush
-logging.basicConfig(level=logging.INFO, handlers=[handler])
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    stream=sys.stdout  # just use stream directly
+)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -39,7 +43,7 @@ def set_condition_every_x_ms(interval_ms):
         check_flag = True
 
 
-threading.Thread(target=set_condition_every_x_ms, args=(1,), daemon=True).start()
+threading.Thread(target=set_condition_every_x_ms, args=(5000,), daemon=True).start()
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
@@ -69,7 +73,7 @@ def on_release_for_training(stop_key):
 def on_release_for_demo(stop_key):
     global added_device_info
     global check_flag
-    if len(key_events) >= 500 :
+    if len(key_events) >= 500 or check_flag:
         if(check_flag):
             check_flag = False #Reset
         with open(demo_filepath, mode='w', newline='') as file:
@@ -91,7 +95,7 @@ def on_release_for_demo(stop_key):
             logging.info("Suspicious behavior is detected. Examine if there is actual HID attack...")
             if added_device_info is not None:
                 logging.info(f"HID attack is detected. Blacklisting device: {added_device_info['name']} ({added_device_info['vendor_id']}:{added_device_info['product_id']})")
-                # blacklist_hid_device(added_device_info)
+                blacklist_hid_device(added_device_info)
             else:
                 logging.info("HID attack is not yet detected. Continue monitoring...")
         else:
@@ -120,17 +124,22 @@ def monitor_keyboard_continuous():
     
     return listener
 
+
 if __name__ == "__main__":
     try:    
         logging.info("Starting keyboard attack detection system...")
-        
-        # Start keystroke monitoring in a non-blocking way
-        keyboard_listener = monitor_keyboard_continuous()
-        # Start device monitoring in the main thread
-        # The callback will set the added_device_info whenever a new keyboard is detected
-       # detect_keyboards_and_callback(lambda device_info: globals().update(added_device_info=device_info), stop_on_detection=False)
-        
-    except KeyboardInterrupt:
-        logging.info("\nKeyboard monitoring service stopped")
+
+        # ✅ Start device detection in its own background thread
+        def device_monitor():
+            detect_keyboards_and_callback(
+                lambda device_info: globals().update(added_device_info=device_info),
+                stop_on_detection=False
+            )
+
+        threading.Thread(target=device_monitor, daemon=True).start()
+
+        # ✅ Start keystroke monitoring in the main thread
+        monitor_keyboard_continuous()
+    
     except Exception as e:
         logging.info(f"An error occurred: {e}")

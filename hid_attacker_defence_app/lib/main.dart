@@ -48,6 +48,8 @@ void showWindowsPopup(String title, String message) async {
   await Process.start('powershell', ['-Command', script]);
 }
 class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -115,9 +117,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
     monitorTimer = Timer.periodic(Duration(seconds: 3), (_) async {
       if (keystrokeProcess == null) return;
 
-      // Check if process is still alive
-      final exited = await keystrokeProcess!.exitCode.catchError((_) => null);
-      if (exited != null && isRunning) {
+      if (isRunning) {
         _logError("🔁 Keystroke script stopped. Restarting...");
         startMonitoring(); // restart the process
       }

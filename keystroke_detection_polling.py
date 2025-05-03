@@ -4,10 +4,13 @@ import os
 from pynput import keyboard
 import time
 import csv
+import time
+import threading
 from ML_model import CustomMLModel
 import logging, sys
 import json
 #from blacklist_linux import detect_keyboards_and_callback, blacklist_hid_device
+
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
@@ -26,6 +29,17 @@ added_device_info = None
 session_threshold = 3
 
 
+check_flag = False
+
+
+def set_condition_every_x_ms(interval_ms):
+    global check_flag
+    while True:
+        time.sleep(interval_ms / 1000.0)  # convert ms to seconds
+        check_flag = True
+
+
+threading.Thread(target=set_condition_every_x_ms, args=(3000,), daemon=True).start()
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
@@ -54,7 +68,10 @@ def on_release_for_training(stop_key):
     
 def on_release_for_demo(stop_key):
     global added_device_info
-    if stop_key == keyboard.Key.esc or len(key_events) > 10:
+    global check_flag
+    if len(key_events) >= 50 or check_flag:
+        if(check_flag):
+            check_flag = False #Reset
         with open(demo_filepath, mode='w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             if file.tell() == 0:
@@ -93,7 +110,7 @@ def monitor_keyboard_continuous():
     key_events = []  # Initialize key events list
     
     logging.info("Starting continuous keystroke monitoring...")
-    logging.info("Press ESC to analyze current keystroke patterns")
+    #logging.info("Press ESC to analyze current keystroke patterns")
     
     # Start a keyboard listener that doesn't block]
     

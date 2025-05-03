@@ -100,7 +100,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
 
     try {
       keystrokeProcess = await Process.start('python', ['../keystroke_detection_polling.py']);
-      _listenToLogs(keystrokeProcess!, 'Keystroke Monitor');
+      _listenToLogs(keystrokeProcess!, 'Keystroke Monitor Status');
     } catch (e) {
       _logError('Failed to start keystroke_monitor.py: $e');
     }
@@ -138,9 +138,17 @@ class _MyAppState extends State<MyApp> with TrayListener {
         }
       }
 
+      if (line.toLowerCase().contains("suspicious behavior is not yet detected")) {
+        safeLevel = 3;
+      }
+
       if (line.toLowerCase().contains("suspicious behavior is detected")) {
         suspiciousCount++;
-        safeLevel = 2;
+
+        if(safeLevel != 2) {
+          SystemSound.play(SystemSoundType.alert); // Native alert sound
+          safeLevel = 2;
+        }
       }
 
       // Fallback for suspicious or plain text logs
@@ -151,8 +159,6 @@ class _MyAppState extends State<MyApp> with TrayListener {
 
       if (line.toLowerCase().contains("key:") || RegExp(r"[a-zA-Z]'?").hasMatch(line)) {
         setState(() {
-          totalKeystrokes++;
-          currentSecondKeyCount++;
           logs.insert(0, "[$source] $line");
           if (logs.length > 500) logs.removeLast();
         });
@@ -281,7 +287,18 @@ class _MyAppState extends State<MyApp> with TrayListener {
                       child: ListView.builder(
                         reverse: true,
                         itemCount: logs.length,
-                        itemBuilder: (context, index) => Text(logs[index], style: TextStyle(color: Colors.white)),
+                        itemBuilder: (context, index) {
+                          final log = logs[index];
+                          final isKeystrokeLog = log.contains("Key Pressed:") || log.contains("⌨️");
+
+                          return Text(
+                            log,
+                            style: TextStyle(
+                              color: isKeystrokeLog ? Colors.white : Colors.greenAccent,
+                              fontFamily: 'Courier', // optional: makes logs look like terminal
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -292,7 +309,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                     decoration: BoxDecoration(
                       color: safeLevel ==3 ? Colors.green : (safeLevel == 2)? Colors.yellow : Colors.red,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white),
+                      border: Border.all(color: Colors.white, width:  4),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

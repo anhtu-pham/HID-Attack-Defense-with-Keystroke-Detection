@@ -2,8 +2,18 @@ import sys
 # import termios
 from pynput import keyboard
 import time
+import json
 import csv
 from ML_model import CustomMLModel
+import logging, sys
+print("Key pressed", flush=True)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+handler.flush = sys.stdout.flush
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+
 fieldnames = ["Key", "Timestamp"]
 key_events = []
 training_real_filepath = 'data/real1.csv'
@@ -24,7 +34,7 @@ def on_press(key):
     if (prev_timestamp == None or current_timestamp - prev_timestamp > session_threshold):
         key_events.append({fieldnames[0]: None, fieldnames[1]: -1})
     key_event = {fieldnames[0]: str(key), fieldnames[1]: current_timestamp}
-    print(f'\n{key_event}')
+    logging.info(json.dumps({'Key': str(key), 'Timestamp': int(time.time() * 1000)}))
     key_events.append(key_event)
     prev_timestamp = current_timestamp
 
@@ -56,16 +66,16 @@ def on_release_for_demo(stop_key):
             flag = model.predict(demo_filepath)
             num_iter += 1
         if flag:
-            print("Abnormal behavior detected. Possible HID attack.")
+            logging.info("Abnormal behavior detected. Possible HID attack.")
             if added_hid_ids is not None:
-                print("Can blacklist now")
+                logging.info("Can blacklist now")
                 # blacklist_hid_devices(added_hid_ids)
         else:
-            print("Abnormal behavior not detected yet.")
+            logging.info("Abnormal behavior not detected yet.")
         clear_stdin()
         return False
 
 if __name__ == "__main__":
-    print("PROGRAM STARTING")
+    logging.info("PROGRAM STARTING")
     with keyboard.Listener(on_press=on_press, on_release=on_release_for_training) as listener:
         listener.join()

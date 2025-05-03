@@ -9,8 +9,17 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:window_manager/window_manager.dart';
 
+const double window_width = 1200;
+const double window_height = 1000;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+  await windowManager.setMinimumSize(const Size(window_width, window_height));
+  await windowManager.setMaximumSize(const Size(window_width, window_height));
+  await windowManager.setSize(const Size(window_width, window_height));
+  await windowManager.setResizable(false);
+  await windowManager.center();
+  await windowManager.show();
   await AwesomeNotifications().initialize(null, [
     NotificationChannel(
       channelKey: 'alerts',
@@ -32,12 +41,12 @@ class _MyAppState extends State<MyApp> with TrayListener {
   Process? keystrokeProcess;
   Process? knnProcess;
   Process? blacklistProcess;
-  List<FlSpot> keyData = [];
-  int keyIndex = 0;
+  List<int> keyCounts = List.generate(60, (_) => 0); // Growable list with 60 zeros
   int totalKeystrokes = 0;
   int suspiciousCount = 0;
   int currentSecondKeyCount = 0;
   Timer? timer;
+  int car = 0;
 
   @override
   void initState() {
@@ -48,18 +57,24 @@ class _MyAppState extends State<MyApp> with TrayListener {
       MenuItem(key: 'show', label: 'Show'),
       MenuItem(key: 'exit', label: 'Exit')
     ]));
-    startMonitoring();
 
-    timer = Timer.periodic(Duration(seconds: 1), (_) {
-      setState(() {
-        keyData.add(FlSpot(keyIndex.toDouble(), currentSecondKeyCount.toDouble()));
-        if (keyData.length > 60) keyData.removeAt(0);
-        keyIndex++;
-        currentSecondKeyCount = 0;
-      });
+    // Shift data every second
+    timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
+      try {
+        setState(() {
+          car += 23;
+          keyCounts.removeAt(0);
+          keyCounts.add(currentSecondKeyCount);
+          currentSecondKeyCount = 0;
+        });
+      } catch (e, stack) {
+
+      _logError('Timer error: $e\n$stack');
+    }
     });
-  }
 
+    startMonitoring();
+  }
 
   void startMonitoring() async {
     setState(() => isRunning = true);
@@ -70,44 +85,58 @@ class _MyAppState extends State<MyApp> with TrayListener {
     } catch (e) {
       _logError('Failed to start keystroke_monitor.py: $e');
     }
-
-    // try {
-    //   knnProcess = await Process.start('python', ['../ML_model.py']);
-    //   _listenToLogs(knnProcess!, 'KNN Model');
-    // } catch (e) {
-    //   _logError('Failed to start knn_model.py: $e');
-    // }
-    //
-    // try {g
-    //   blacklistProcess = await Process.start('python', ['../blacklist_linux.py']);
-    //   _listenToLogs(blacklistProcess!, 'Blacklist Monitor');
-    // } catch (e) {
-    //   _logError('Failed to start blacklist.py: $e');
-    // }
   }
-
 
   void _listenToLogs(Process process, String source) {
     process.stdout.transform(utf8.decoder).transform(LineSplitter()).listen((line) {
       if (!mounted) return;
-      bool isKeystroke = line.contains("Key:") || RegExp(r"[a-zA-Z]'?").hasMatch(line);
+      // Remove "INFO:root:" prefix if present
+      line = line.replaceFirst(RegExp(r'^INFO:root:\s*'), '');
 
-      if (isKeystroke) {
+      if (!(line.contains('Key') && line.contains('Timestamp'))) {
+        return;
+      }
+
+      try {
+        final decoded = json.decode(line);
+        if (decoded is Map && decoded.containsKey("Key") && decoded.containsKey("Timestamp")) {
+          final rawKey = decoded["Key"].toString().replaceAll("'", "").replaceAll("{", "").replaceAll("}", "").trim();
+          final key = rawKey.isEmpty ? "[Unknown]" : rawKey;
+          final ts = DateTime.fromMillisecondsSinceEpoch(decoded["Timestamp"]);
+          final formattedTime = "${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} "
+              "${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}";
+
+          setState(() {
+            totalKeystrokes++;
+            currentSecondKeyCount++;
+            logs.insert(0, "🕒 [$formattedTime]: ⌨️ Key Pressed: $key");
+            if (logs.length > 500) logs.removeLast();
+          });
+          return;
+        }
+      } catch (e) {
+        // Log failed JSON parse with original line
         setState(() {
-          totalKeystrokes++;
-          currentSecondKeyCount++;
+          logs.insert(0, "⚠️ Failed to parse JSON from $source: \"$line\" | Error: $e");
+          if (logs.length > 500) logs.removeLast();
         });
       }
 
+      // Fallback for suspicious or plain text logs
       if (line.toLowerCase().contains("suspicious") && line.toLowerCase().contains("detected")) {
         suspiciousCount++;
         _showAlert("Possible HID attack detected by $source!");
       }
 
-      setState(() {
-        logs.insert(0, "[$source] $line");
-        if (logs.length > 500) logs.removeLast();
-      });
+      if (line.toLowerCase().contains("key:") || RegExp(r"[a-zA-Z]'?").hasMatch(line)) {
+        setState(() {
+          totalKeystrokes++;
+          currentSecondKeyCount++;
+          logs.insert(0, "[$source] $line");
+          if (logs.length > 500) logs.removeLast();
+        });
+      }
+
     }, onError: (error) {
       _logError('Error reading logs from $source: $error');
     });
@@ -135,11 +164,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
     );
   }
 
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
+
 
   @override
   void onTrayIconMouseDown() {
@@ -156,22 +181,23 @@ class _MyAppState extends State<MyApp> with TrayListener {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
+    final spots = keyCounts.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.toDouble())).toList();
+    final maxY = (keyCounts.reduce((a, b) => a > b ? a : b) + 1).toDouble();
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
       title: 'HID Defense',
       home: Scaffold(
         appBar: AppBar(
           title: Text('🔐 HID-Attacker Defense System'),
           actions: [
             isRunning
-                ? TextButton(
-                onPressed: () {},
-                child: Text("🟢 Running", style: TextStyle(color: Colors.white)))
-                : TextButton(
-                onPressed: startMonitoring,
-                child: Text("Start", style: TextStyle(color: Colors.white)))
+                ? TextButton(onPressed: () {}, child: Text('🟢 Running', style: TextStyle(color: Colors.white)))
+                : TextButton(onPressed: startMonitoring, child: Text('Start', style: TextStyle(color: Colors.white)))
           ],
         ),
         body: Column(
@@ -183,64 +209,93 @@ class _MyAppState extends State<MyApp> with TrayListener {
                 child: ListView.builder(
                   reverse: true,
                   itemCount: logs.length,
-                  itemBuilder: (context, index) => Text(logs[index]),
+                  itemBuilder: (context, index) => Text(logs[index], style: TextStyle(color: Colors.white)),
                 ),
               ),
             ),
-            Divider(),
+            Divider(color: Colors.grey),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Column(
                 children: [
-                  Text("🔍 Keystroke Activity Per Second", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text("Total Keystrokes: $totalKeystrokes | Alerts: $suspiciousCount", style: TextStyle(color: Colors.grey[700]))
+                  Text('🔍 Keystroke Activity (0–60s)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('Total Keystrokes: $totalKeystrokes | Alerts: $car', style: TextStyle(color: Colors.grey[300])),
                 ],
               ),
             ),
             Expanded(
+              flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(0),
-                child: LineChart(LineChartData(
-                  minY: 0,
-                  gridData: FlGridData(show: true, drawVerticalLine: true, horizontalInterval: 1, verticalInterval: 5),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) => Text('${value.toInt()}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                        reservedSize: 28,
-                      ),
-                      axisNameWidget: Padding(
-                        padding: EdgeInsets.only(bottom: 0),
-                        child: Text("Keys/sec", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      ),
-                      axisNameSize: 16,
+                padding: const EdgeInsets.all(12.0),
+                child: LineChart(
+                  LineChartData(
+                    backgroundColor: Colors.black,
+                    minY: -0.02,
+                    maxY: maxY,
+                    minX: 0,
+                    maxX: 59,
+                    clipData: FlClipData.all(), // this ensures the curve doesn't draw below minY
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey[800]!, strokeWidth: 1),
+                      getDrawingVerticalLine: (v) => FlLine(color: Colors.grey[800]!, strokeWidth: 1),
                     ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) => Text('${value.toInt()}s', style: TextStyle(fontSize: 10)),
+                    titlesData: FlTitlesData(
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
                       ),
-                      axisNameWidget: Padding(
-                        padding: EdgeInsets.only(top: 0),
-                        child: Text("Seconds", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
                       ),
-                      axisNameSize: 16,
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (val, meta) => Text('${val.toInt()}', style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+                          reservedSize: 20,
+                        ),
+                        axisNameWidget: Padding(
+                          padding: EdgeInsets.only(bottom: 0),
+                          child: Text('Keys/sec', style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 5,
+                          getTitlesWidget: (val, meta) => Text('${val.toInt()}s', style: TextStyle(color: Colors.amberAccent, fontSize: 10)),
+                        ),
+                        axisNameWidget: Padding(
+                          padding: EdgeInsets.only(top: 0),
+                          child: Text('Seconds', style: TextStyle(color: Colors.amberAccent, fontSize: 12)),
+                        ),
+                      ),
                     ),
+                    borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey[700]!)),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        curveSmoothness: 0.2, // Optional: control curvature (0 = tight, 1 = loose)
+                        barWidth: 2,
+                        dotData: FlDotData(
+                          show: true, // ✅ Show dots
+                          getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                            radius: 3,
+                            color: Colors.greenAccent,
+                            strokeColor: Colors.black,
+                          ),
+                        ),
+                        belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
+                        gradient: LinearGradient(
+                          colors: [Colors.greenAccent, Colors.lightGreenAccent],
+                        ),
+                      )
+                    ],
                   ),
-                  borderData: FlBorderData(show: true),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: keyData.isEmpty ? [FlSpot(0, 0)] : keyData,
-                      isCurved: true,
-                      barWidth: 3,
-                      color: Colors.green,
-                      belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
-                    )
-                  ],
-                )),
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),

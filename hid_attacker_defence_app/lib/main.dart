@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 int safeLevel = 3;
 const double window_width = 1200;
 const double window_height = 1000;
+
+bool monitor_error = false;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
@@ -140,8 +142,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
 
       if (line.toLowerCase().contains("suspicious behavior is not yet detected")) {
         safeLevel = 3;
-      }
-
+      }else
       if (line.toLowerCase().contains("suspicious behavior is detected")) {
         suspiciousCount++;
 
@@ -149,20 +150,14 @@ class _MyAppState extends State<MyApp> with TrayListener {
           SystemSound.play(SystemSoundType.alert); // Native alert sound
           safeLevel = 2;
         }
-      }
-
+      }else
       // Fallback for suspicious or plain text logs
       if (line.toLowerCase().contains("hid attack is detected")) {
 
         _showAlert("Possible HID attack detected by $source!");
       }
 
-      if (line.toLowerCase().contains("key:") || RegExp(r"[a-zA-Z]'?").hasMatch(line)) {
-        setState(() {
-          logs.insert(0, "[$source] $line");
-          if (logs.length > 500) logs.removeLast();
-        });
-      }
+      logs.insert(0, "[$source] $line");
 
     }, onError: (error) {
       _logError('Error reading logs from $source: $error');
@@ -174,6 +169,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
   }
 
   void _logError(String message) {
+    monitor_error = true;
     if (!mounted) return;
     setState(() {
       logs.insert(0, message);
@@ -290,11 +286,11 @@ class _MyAppState extends State<MyApp> with TrayListener {
                         itemBuilder: (context, index) {
                           final log = logs[index];
                           final isKeystrokeLog = log.contains("Key Pressed:") || log.contains("⌨️");
-
+                          monitor_error = !log.toLowerCase().contains("continue") && !log.toLowerCase().contains("starting") && !isKeystrokeLog;
                           return Text(
                             log,
                             style: TextStyle(
-                              color: isKeystrokeLog ? Colors.white : Colors.greenAccent,
+                              color: monitor_error? Colors.red : isKeystrokeLog ? Colors.white : Colors.greenAccent,
                               fontFamily: 'Courier', // optional: makes logs look like terminal
                             ),
                           );

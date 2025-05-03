@@ -87,7 +87,6 @@ def on_release_for_demo(stop_key):
         model.train(training_real_filepath, training_fake_filepath)
         flag = model.predict(demo_filepath)
         
-        logging.info("________________________________________")
         if flag:
             logging.info("Suspicious behavior is detected. Examine if there is actual HID attack...")
             if added_device_info is not None:

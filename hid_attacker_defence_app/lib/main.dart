@@ -9,7 +9,7 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter/services.dart';
 
-bool isSafe = true;
+int safeLevel = 3;
 const double window_width = 1200;
 const double window_height = 1000;
 void main() async {
@@ -99,7 +99,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
     setState(() => isRunning = true);
 
     try {
-      keystrokeProcess = await Process.start('python', ['../keystroke_detection.py']);
+      keystrokeProcess = await Process.start('python', ['../keystroke_detection_polling.py']);
       _listenToLogs(keystrokeProcess!, 'Keystroke Monitor');
     } catch (e) {
       _logError('Failed to start keystroke_monitor.py: $e');
@@ -111,39 +111,41 @@ class _MyAppState extends State<MyApp> with TrayListener {
       if (!mounted) return;
       // Remove "INFO:root:" prefix if present
       line = line.replaceFirst(RegExp(r'^INFO:root:\s*'), '');
+      if (line.contains('Key') && line.contains('Timestamp')) {
+        try {
+          final decoded = json.decode(line);
+          if (decoded is Map && decoded.containsKey("Key") && decoded.containsKey("Timestamp")) {
+            final rawKey = decoded["Key"].toString().replaceAll("'", "").replaceAll("{", "").replaceAll("}", "").trim();
+            final key = rawKey.isEmpty ? "[Unknown]" : rawKey;
+            final ts = DateTime.fromMillisecondsSinceEpoch(decoded["Timestamp"]);
+            final formattedTime = "${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} "
+                "${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}";
 
-      if (!(line.contains('Key') && line.contains('Timestamp'))) {
-        return;
-      }
-
-      try {
-        final decoded = json.decode(line);
-        if (decoded is Map && decoded.containsKey("Key") && decoded.containsKey("Timestamp")) {
-          final rawKey = decoded["Key"].toString().replaceAll("'", "").replaceAll("{", "").replaceAll("}", "").trim();
-          final key = rawKey.isEmpty ? "[Unknown]" : rawKey;
-          final ts = DateTime.fromMillisecondsSinceEpoch(decoded["Timestamp"]);
-          final formattedTime = "${ts.year}-${ts.month.toString().padLeft(2, '0')}-${ts.day.toString().padLeft(2, '0')} "
-              "${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}";
-
+            setState(() {
+              totalKeystrokes++;
+              currentSecondKeyCount++;
+              logs.insert(0, "🕒 [$formattedTime]: ⌨️ Key Pressed: $key");
+              if (logs.length > 500) logs.removeLast();
+            });
+            return;
+          }
+        } catch (e) {
+          // Log failed JSON parse with original line
           setState(() {
-            totalKeystrokes++;
-            currentSecondKeyCount++;
-            logs.insert(0, "🕒 [$formattedTime]: ⌨️ Key Pressed: $key");
+            logs.insert(0, "⚠️ Failed to parse JSON from $source: \"$line\" | Error: $e");
             if (logs.length > 500) logs.removeLast();
           });
-          return;
         }
-      } catch (e) {
-        // Log failed JSON parse with original line
-        setState(() {
-          logs.insert(0, "⚠️ Failed to parse JSON from $source: \"$line\" | Error: $e");
-          if (logs.length > 500) logs.removeLast();
-        });
+      }
+
+      if (line.toLowerCase().contains("suspicious behavior is detected")) {
+        suspiciousCount++;
+        safeLevel = 2;
       }
 
       // Fallback for suspicious or plain text logs
-      if (line.toLowerCase().contains("Abnormal") && line.toLowerCase().contains("detected") && line.toLowerCase().contains("attack")) {
-        suspiciousCount++;
+      if (line.toLowerCase().contains("hid attack is detected")) {
+
         _showAlert("Possible HID attack detected by $source!");
       }
 
@@ -174,7 +176,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
 
   void _showAlert(String message) {
     setState(() {
-      isSafe = false;
+      safeLevel = 1;
     });
 
     SystemSound.play(SystemSoundType.alert); // Native alert sound
@@ -219,11 +221,19 @@ class _MyAppState extends State<MyApp> with TrayListener {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
-      title: 'HID Defense',
+      title: 'HID Keystroke Monitor',
       home: Scaffold(
         appBar: AppBar(
           title: Stack(
-            children: [Align(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '🔐 HID-Keystroke Monitor',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+              Align(
               alignment: Alignment.center,
               child: Container(
                 decoration: BoxDecoration(
@@ -244,7 +254,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                   child: Text(
                     isRunning ?   '🟢 Running  ' : '▶️ Start',
                     style: TextStyle(
-                      color: isRunning ? Colors.red : Colors.green,
+                      color: isRunning ? Colors.green : Colors.grey,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -276,11 +286,11 @@ class _MyAppState extends State<MyApp> with TrayListener {
                     ),
                   ),
                   Container(
-                    width: 200,
+                    width: 250,
                     margin: EdgeInsets.all(12),
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSafe ? Colors.green : Colors.red,
+                      color: safeLevel ==3 ? Colors.green : (safeLevel == 2)? Colors.yellow : Colors.red,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.white),
                     ),
@@ -288,15 +298,15 @@ class _MyAppState extends State<MyApp> with TrayListener {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          isSafe ? Icons.check_circle : Icons.warning,
+                          safeLevel == 3 ? Icons.check_circle : safeLevel ==2 ? Icons.warning : Icons.error,
                           size: 80,
                           color: Colors.white,
                         ),
                         SizedBox(height: 10),
                         Text(
-                          isSafe ? 'NO ATTACKER' : 'ATTACKER DETECTED',
+                          safeLevel == 3 ? 'NO ATTACKER' : safeLevel == 2? 'SUSPICIOUS BEHAVIOR':'ATTACKER DETECTED' ,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 19,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -373,7 +383,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                         curveSmoothness: 0.2, // Optional: control curvature (0 = tight, 1 = loose)
                         barWidth: 2,
                         dotData: FlDotData(
-                          show: true, // ✅ Show dots
+                          show: true, // Show dots
                           getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
                             radius: 3,
                             color: Colors.greenAccent,

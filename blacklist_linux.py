@@ -12,10 +12,6 @@ import logging
 from datetime import datetime
 import platform
 import sys 
-import threading
-DEVCON_PATH = os.path.join(os.getcwd(), "devcon.exe")  # Adjust path if needed
-
-latest_active_device = None
 
 IS_WINDOWS = platform.system() == "Windows"
 IS_LINUX = platform.system() == "Linux"
@@ -268,60 +264,49 @@ def extract_product_id(device_id):
 
 def detect_keyboards_and_callback(callback_function=None, stop_on_detection=False):
     """
-    Detect and return the device currently sending keystrokes (interrupt-like behavior).
-    Maintains the latest active device in global `latest_active_device`.
+    Cross-platform: Monitor for new keyboard connections (Linux: via pyudev, Windows: via polling PowerShell)
     """
-    global latest_active_device
-
     if IS_LINUX:
-        try:
-            from evdev import InputDevice, categorize, ecodes, list_devices
-        except ImportError:
-            logging.error("Please install evdev: pip install evdev")
-            return
+        context = pyudev.Context()
+        monitor = pyudev.Monitor.from_netlink(context)
+        monitor.filter_by(subsystem='input')
+        monitor.start()
+        logging.info("Linux: Starting keyboard monitoring service")
 
-        devices = [InputDevice(path) for path in list_devices()]
-        keyboards = [dev for dev in devices if 'keyboard' in dev.name.lower()]
+        for device in iter(monitor.poll, None):
+            if device.action == 'add' and is_keyboard(device):
+                device_info = get_device_info(device)
 
-        logging.info("Monitoring active keyboards for keystroke input...")
+                if is_duplicate_device(device_info):
+                    logging.info(f"Skipping duplicate device: {device_info['name']} ({device_info['fingerprint']})")
+                    continue
 
-        for dev in keyboards:
-            def monitor_device(device):
-                global latest_active_device
-                for event in device.read_loop():
-                    if event.type == ecodes.EV_KEY and event.value == 1:  # key down
-                        device_info = {
-                            'name': device.name,
-                            'vendor_id': '0000',  # not available via evdev
-                            'product_id': '0000',
-                            'device_path': device.path,
-                            'serial': '',
-                            'fingerprint': device.path,
-                        }
-                        latest_active_device = device_info  # update latest device
-                        logging.info(f"Key press detected from: {device.path}")
-                        if callback_function:
-                            callback_function(device_info)
-                        if stop_on_detection:
-                            return
-
-            threading.Thread(target=monitor_device, args=(dev,), daemon=True).start()
+                logging.info(f"New keyboard detected: {device_info['name']} ({device_info['vendor_id']}:{device_info['product_id']})")
+                if callback_function:
+                    callback_function(device_info)
+                    if stop_on_detection:
+                        break
 
     elif IS_WINDOWS:
-        logging.warning("Active device keystroke detection is limited on Windows. Using polling fallback.")
+        logging.info("Windows: Starting polling-based keyboard detection")
         known_devices = set()
 
         while True:
             try:
+
+                # Get all connected keyboard-class devices
                 result = subprocess.run(
                     ['powershell', '-Command',
                      'Get-PnpDevice -Class Keyboard | Select-Object -ExpandProperty InstanceId'],
                     capture_output=True, text=True
                 )
+                
 
                 device_ids = set(result.stdout.strip().splitlines())
+    
                 new_devices = device_ids - known_devices
                 for device_id in new_devices:
+                    logging.info(f"New keyboard detected: {device_id}")
                     device_info = {
                         'name': device_id,
                         'vendor_id': extract_vendor_id(device_id),
@@ -330,24 +315,19 @@ def detect_keyboards_and_callback(callback_function=None, stop_on_detection=Fals
                         'serial': '',
                         'fingerprint': device_id,
                     }
-                    latest_active_device = device_info
-                    logging.info(f"Detected input from: {device_id}")
-                    if callback_function:
-                        callback_function(device_info)
-                    known_devices.add(device_id)
-                    if stop_on_detection:
-                        return
-                time.sleep(2)
+
+                    if not is_duplicate_device(device_info):
+                        if callback_function:
+                            callback_function(device_info)
+                        known_devices.add(device_id)
+                        if stop_on_detection:
+                            return
+
+                time.sleep(3)
             except Exception as e:
-                logging.error(f"Error polling keyboards on Windows: {e}")
+                logging.error(f"Error polling for keyboard devices on Windows: {e}")
                 time.sleep(5)
-
-def get_latest_active_device():
-    """Returns the most recently active HID device (even if now disconnected)."""
-    global latest_active_device
-    return latest_active_device
-
-                         
+                
 def blacklist_hid_device(device_info):
     logging.info(f"Attempting to blacklist keyboard: {device_info.get('name', 'Unknown')}")
 
@@ -366,25 +346,23 @@ def blacklist_hid_device(device_info):
 
     elif IS_WINDOWS:
         try:
+            # Use DevCon or PowerShell to disable the device (must be run as admin)
             vendor_id = device_info.get("vendor_id", "")
             product_id = device_info.get("product_id", "")
             device_id = f"HID\\VID_{vendor_id}&PID_{product_id}"
 
             logging.info(f"Trying to disable device using DevCon: {device_id}")
-            result = subprocess.run([DEVCON_PATH, 'disable', device_id], capture_output=True, text=True)
+            result = subprocess.run(['devcon', 'disable', device_id], capture_output=True, text=True)
 
             if "disabled" in result.stdout.lower():
                 logging.info("Device successfully disabled.")
                 return True
             else:
-                logging.warning("DevCon output:\n" + result.stdout)
-                logging.error("Failed Wto disable device via devcon.")
+                logging.info("Failed to disable device via devcon.")
+                logging.info(result.stdout)
                 return False
-        except FileNotFoundError:
-            logging.error("devcon.exe not found. Make sure it's in the working directory or system PATH.")
-            return False
         except Exception as e:
-            logging.error(f"Error disabling HID device on Windows: {e}")
+            logging.info(f"Error disabling HID device on Windows: {e}")
             return False
 # if IS_LINUX:
 #     subprocess.run(['udevadm', 'control', '--reload'], check=False)

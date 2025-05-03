@@ -124,22 +124,21 @@ def monitor_keyboard_continuous():
     
     return listener
 
+# Move keyboard monitoring to a background thread instead
+
+def start_keyboard_monitoring_thread():
+    threading.Thread(target=monitor_keyboard_continuous, daemon=True).start()
 
 if __name__ == "__main__":
-    try:    
-        logging.info("Starting keyboard attack detection system...")
+    logging.info("Starting keyboard attack detection system...")
 
-        # ✅ Start device detection in its own background thread
-        def device_monitor():
-            detect_keyboards_and_callback(
-                lambda device_info: globals().update(added_device_info=device_info),
-                stop_on_detection=False
-            )
+    # Start keyboard monitoring in background
+    start_keyboard_monitoring_thread()
 
-        threading.Thread(target=device_monitor, daemon=True).start()
-
-        # ✅ Start keystroke monitoring in the main thread
-        monitor_keyboard_continuous()
+    # Then begin HID device detection interrupt-style
+    detect_keyboards_and_callback(
+        callback_function=lambda device_info: globals().update(added_device_info=device_info),
+        stop_on_detection=False
+    )
     
-    except Exception as e:
-        logging.info(f"An error occurred: {e}")
+    

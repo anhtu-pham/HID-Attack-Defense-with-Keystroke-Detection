@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter/services.dart';
 
+bool isSafe = true;
 const double window_width = 1200;
 const double window_height = 1000;
 void main() async {
@@ -30,6 +31,20 @@ void main() async {
   runApp(MyApp());
 }
 
+void showWindowsPopup(String title, String message) async {
+  final script = '''
+  [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > \$null
+  \$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+  \$textNodes = \$template.GetElementsByTagName("text")
+  \$textNodes.Item(0).AppendChild(\$template.CreateTextNode("$title")) > \$null
+  \$textNodes.Item(1).AppendChild(\$template.CreateTextNode("$message")) > \$null
+  \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template)
+  \$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("HID Defense")
+  \$notifier.Show(\$toast)
+  ''';
+
+  await Process.start('powershell', ['-Command', script]);
+}
 class MyApp extends StatefulWidget {
   @override
   State<MyApp> createState() => _MyAppState();
@@ -46,7 +61,6 @@ class _MyAppState extends State<MyApp> with TrayListener {
   int suspiciousCount = 0;
   int currentSecondKeyCount = 0;
   Timer? timer;
-  int car = 0;
 
   @override
   void initState() {
@@ -62,7 +76,6 @@ class _MyAppState extends State<MyApp> with TrayListener {
     timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
       try {
         setState(() {
-          car += 23;
           keyCounts.removeAt(0);
           keyCounts.add(currentSecondKeyCount);
           currentSecondKeyCount = 0;
@@ -75,7 +88,13 @@ class _MyAppState extends State<MyApp> with TrayListener {
 
     startMonitoring();
   }
+  void stopMonitoring() {
+    setState(() => isRunning = false);
 
+    keystrokeProcess?.kill();
+    knnProcess?.kill();
+    blacklistProcess?.kill();
+  }
   void startMonitoring() async {
     setState(() => isRunning = true);
 
@@ -123,7 +142,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
       }
 
       // Fallback for suspicious or plain text logs
-      if (line.toLowerCase().contains("suspicious") && line.toLowerCase().contains("detected")) {
+      if (line.toLowerCase().contains("Abnormal") && line.toLowerCase().contains("detected") && line.toLowerCase().contains("attack")) {
         suspiciousCount++;
         _showAlert("Possible HID attack detected by $source!");
       }
@@ -154,6 +173,13 @@ class _MyAppState extends State<MyApp> with TrayListener {
   }
 
   void _showAlert(String message) {
+    setState(() {
+      isSafe = false;
+    });
+
+    SystemSound.play(SystemSoundType.alert); // Native alert sound
+    showWindowsPopup("HID Attack Detected", message); //Native toast
+
     AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -162,6 +188,9 @@ class _MyAppState extends State<MyApp> with TrayListener {
         body: message,
       ),
     );
+
+    // Windows alert sound
+    SystemSound.play(SystemSoundType.alert);
   }
 
 
@@ -193,24 +222,89 @@ class _MyAppState extends State<MyApp> with TrayListener {
       title: 'HID Defense',
       home: Scaffold(
         appBar: AppBar(
-          title: Text('🔐 HID-Attacker Defense System'),
-          actions: [
-            isRunning
-                ? TextButton(onPressed: () {}, child: Text('🟢 Running', style: TextStyle(color: Colors.white)))
-                : TextButton(onPressed: startMonitoring, child: Text('Start', style: TextStyle(color: Colors.white)))
-          ],
+          title: Stack(
+            children: [Align(
+              alignment: Alignment.center,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[800], // static gray background
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: TextButton(
+                  onPressed: isRunning ? stopMonitoring : startMonitoring,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size(120, 40),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                  ),
+                  child: Text(
+                    isRunning ?   '🟢 Running  ' : '▶️ Start',
+                    style: TextStyle(
+                      color: isRunning ? Colors.red : Colors.green,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+            ],
+          ),
+          automaticallyImplyLeading: false,
         ),
         body: Column(
           children: [
             Expanded(
               flex: 2,
-              child: Container(
-                padding: EdgeInsets.all(10),
-                child: ListView.builder(
-                  reverse: true,
-                  itemCount: logs.length,
-                  itemBuilder: (context, index) => Text(logs[index], style: TextStyle(color: Colors.white)),
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      padding: EdgeInsets.all(10),
+                      child: ListView.builder(
+                        reverse: true,
+                        itemCount: logs.length,
+                        itemBuilder: (context, index) => Text(logs[index], style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 200,
+                    margin: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSafe ? Colors.green : Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isSafe ? Icons.check_circle : Icons.warning,
+                          size: 80,
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          isSafe ? 'NO ATTACKER' : 'ATTACKER DETECTED',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
               ),
             ),
             Divider(color: Colors.grey),
@@ -219,7 +313,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
               child: Column(
                 children: [
                   Text('🔍 Keystroke Activity (0–60s)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('Total Keystrokes: $totalKeystrokes | Alerts: $car', style: TextStyle(color: Colors.grey[300])),
+                  Text('Total Keystrokes: $totalKeystrokes | Alerts: $suspiciousCount', style: TextStyle(color: Colors.grey[300])),
                 ],
               ),
             ),

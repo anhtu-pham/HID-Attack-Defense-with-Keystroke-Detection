@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   awesome_notifications
   screen_retriever_windows
   tray_manager
+  win_toast
   window_manager
 )
 

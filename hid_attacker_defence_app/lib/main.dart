@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -12,6 +11,10 @@ import 'package:flutter/services.dart';
 int safeLevel = 3;
 const double window_width = 1200;
 const double window_height = 1000;
+
+bool developerMode = false;
+bool trainAsAttacker = false;
+bool trainAsHuman = true;
 
 bool monitor_error = false;
 void main() async {
@@ -32,6 +35,8 @@ void main() async {
   ]);
   runApp(MyApp());
 }
+
+
 
 void showWindowsPopup(String title, String message) async {
   final script = '''
@@ -67,6 +72,28 @@ class _MyAppState extends State<MyApp> with TrayListener {
   int currentSecondKeyCount = 0;
   Timer? timer;
 
+  Future<void> runPythonScript(bool isDeveloperMode) async {
+    final mode = isDeveloperMode ? 'training' : 'demo';
+
+    keystrokeProcess = await Process.start(
+      'python',
+      ['../keystroke_detection_polling.py', mode],
+      runInShell: true,
+    );
+
+    // // Optional: Read and show output in the log view
+    // keystrokeProcess?.stdout.transform(utf8.decoder).listen((data) {
+    //   print('PYTHON STDOUT: $data');
+    // });
+    //
+    // keystrokeProcess?.stderr.transform(utf8.decoder).listen((data) {
+    //   print('PYTHON STDERR: $data');
+    // });
+    //
+    // final exitCode = await keystrokeProcess?.exitCode;
+    // print("Python exited with code $exitCode");
+  }
+
   @override
   void initState() {
     super.initState();
@@ -95,16 +122,13 @@ class _MyAppState extends State<MyApp> with TrayListener {
   }
   void stopMonitoring() {
     setState(() => isRunning = false);
-
-    keystrokeProcess?.kill();
-    knnProcess?.kill();
-    blacklistProcess?.kill();
+    keystrokeProcess?.stdin.writeln("STOP MONITORING");
   }
   void startMonitoring() async {
     setState(() => isRunning = true);
 
     try {
-      keystrokeProcess = await Process.start('python', ['../keystroke_detection_polling.py']);
+      await runPythonScript(developerMode);
       _listenToLogs(keystrokeProcess!, 'Keystroke Monitor Status');
     } catch (e) {
       _logError('Failed to start keystroke_monitor.py: $e');
@@ -252,35 +276,74 @@ class _MyAppState extends State<MyApp> with TrayListener {
                 ),
               ),
               Align(
-              alignment: Alignment.center,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[800], // static gray background
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: TextButton(
-                  onPressed: isRunning ? stopMonitoring : startMonitoring,
-                  style: TextButton.styleFrom(
-                    minimumSize: Size(120, 40),
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
+                alignment: Alignment.center,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    isRunning ?   '🟢 Running  ' : '▶️ Start',
-                    style: TextStyle(
-                      color: isRunning ? Colors.green : Colors.grey,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: TextButton(
+                    onPressed: (){
+
+                      if(developerMode){
+                        if(isRunning)
+                          stopMonitoring();
+                        else {
+                          keystrokeProcess?.stdin.writeln("START TRAINING");
+                          isRunning = true;
+                        }
+                      }
+                      else {
+                        if(isRunning)
+                          stopMonitoring();
+                        else {
+                          keystrokeProcess?.stdin.writeln("START DEMO");
+                          isRunning = true;
+                        }
+                      }
+                    },
+                    style: TextButton.styleFrom(
+                      minimumSize: Size(120, 40),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
                     ),
-                    textAlign: TextAlign.center,
+                    child: Text(
+                      isRunning
+                          ? (developerMode ? '🟢 Training' : '🟢 Running')
+                          : (developerMode ? '▶️ Train' : '▶️ Start'),
+                      style: TextStyle(
+                        color: isRunning ? Colors.green : Colors.grey,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
-            ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Enable Developer Mode", style: TextStyle(fontSize: 12)),
+                    Switch(
+                      value: developerMode,
+                      onChanged: (val) {
+                        setState(() {
+                          keystrokeProcess?.stdin.writeln("STOP MONITORING");
+                          isRunning = false;
+                          developerMode = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           automaticallyImplyLeading: false,
@@ -314,26 +377,77 @@ class _MyAppState extends State<MyApp> with TrayListener {
                       ),
                     ),
                   ),
-                  Container(
+                  developerMode
+                      ? Container(
                     width: 250,
                     margin: EdgeInsets.all(12),
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: safeLevel ==3 ? Colors.green : (safeLevel == 2)? Colors.yellow : Colors.red,
+                      color: Colors.blueGrey[900],
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white, width:  4),
+                      border: Border.all(color: Colors.white, width: 4),
+                    ),
+                    child: Column(
+                      children: [
+                        Text("🧠 AI Training Mode", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        SwitchListTile(
+                          title: Text("Train as Attacker"),
+                          value: trainAsAttacker,
+                          onChanged: (!isRunning && trainAsHuman)
+                              ? (val) {
+                            setState(() {
+                              trainAsAttacker = val;
+                              trainAsHuman = false;
+                            });
+                            // TODO: Implement attacker training toggle logic
+                          }
+                              : null, // disables the switch if running
+                        ),
+                        SwitchListTile(
+                          title: Text("Train as Human"),
+                          value: trainAsHuman,
+                          onChanged: (!isRunning && trainAsAttacker)
+                              ? (val) {
+                            setState(() {
+                              trainAsHuman = val;
+                              trainAsAttacker = false;
+                            });
+                            // TODO: Implement human training toggle logic
+                          }
+                              : null,
+                        ),
+                        ElevatedButton(
+                          onPressed: (!isRunning && (trainAsAttacker || trainAsHuman))
+                              ? () async {
+                            // Or: trigger release
+                            keystrokeProcess?.stdin.writeln("RELEASE");
+                          }
+                              : null,
+                          child: Text("📤 Release Data"),
+                        ),
+                      ],
+                    ),
+                  )
+                      : Container(
+                    width: 250,
+                    margin: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: safeLevel == 3 ? Colors.green : (safeLevel == 2) ? Colors.yellow : Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 4),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          safeLevel == 3 ? Icons.check_circle : safeLevel ==2 ? Icons.warning : Icons.error,
+                          safeLevel == 3 ? Icons.check_circle : safeLevel == 2 ? Icons.warning : Icons.error,
                           size: 80,
                           color: Colors.white,
                         ),
                         SizedBox(height: 10),
                         Text(
-                          safeLevel == 3 ? 'NO ATTACKER' : safeLevel == 2? 'SUSPICIOUS BEHAVIOR':'ATTACKER DETECTED' ,
+                          safeLevel == 3 ? 'NO ATTACKER' : safeLevel == 2 ? 'SUSPICIOUS BEHAVIOR' : 'ATTACKER DETECTED',
                           style: TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
@@ -342,7 +456,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                         ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
             ),

@@ -291,6 +291,7 @@ class _MyAppState extends State<MyApp> with TrayListener {
                           stopMonitoring();
                         else {
                           keystrokeProcess?.stdin.writeln("START TRAINING");
+                          logs.clear();
                           isRunning = true;
                         }
                       }
@@ -360,16 +361,17 @@ class _MyAppState extends State<MyApp> with TrayListener {
                     child: Container(
                       padding: EdgeInsets.all(10),
                       child: ListView.builder(
-                        reverse: true,
                         itemCount: logs.length,
+                        reverse: true,
                         itemBuilder: (context, index) {
                           final log = logs[index];
                           final isKeystrokeLog = log.contains("Key Pressed:") || log.contains("⌨️");
-                          monitor_error =  !log.toLowerCase().contains("suspicious") && !log.toLowerCase().contains("continue") && !log.toLowerCase().contains("starting") && !isKeystrokeLog;
+                          final isStatusInfo = log.contains("New keyboard") || log.contains("Releasing") || log.contains("Released training");
+                          monitor_error =  !log.toLowerCase().contains("suspicious") && !log.toLowerCase().contains("continue") && !log.toLowerCase().contains("starting") && !isKeystrokeLog && !log.contains("Stopping") ;
                           return Text(
                             log,
                             style: TextStyle(
-                              color: monitor_error? Colors.red : isKeystrokeLog ? Colors.white : Colors.greenAccent,
+                              color: isStatusInfo? Colors.yellow: monitor_error? Colors.red : isKeystrokeLog ? Colors.white : Colors.greenAccent,
                               fontFamily: 'Courier', // optional: makes logs look like terminal
                             ),
                           );

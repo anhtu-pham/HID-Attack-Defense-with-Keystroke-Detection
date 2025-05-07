@@ -47,18 +47,18 @@ def set_condition_every_x_ms(interval_ms):
         check_flag = True
 
 
-threading.Thread(target=set_condition_every_x_ms, args=(5000,), daemon=True).start()
+threading.Thread(target=set_condition_every_x_ms, args=(10000,), daemon=True).start()
 
 def clear_stdin():
     """Flush any pending input so the terminal does not execute the last typed command."""
     # termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
-def finalize_training_data(label="real"):
-    target_path = new_training_real_filepath# if label == "real" else new_training_fake_filepath
+#def finalize_training_data(label="real"):
+    # target_path = new_training_real_filepath# if label == "real" else new_training_fake_filepath
 
-    if not os.path.exists(temp_training_filepath):
-        logging.warning("⚠️ Temp training file does not exist. Skipping finalize.")
-        return
+    # if not os.path.exists(temp_training_filepath):
+    #     logging.warning("⚠️ Temp training file does not exist. Skipping finalize.")
+    #     return
 
     # with open(temp_training_filepath, mode='r', newline='') as src_file, \
     #      open(target_path, mode='a', newline='') as dest_file:
@@ -72,8 +72,8 @@ def finalize_training_data(label="real"):
     #     for row in reader:
     #         writer.writerow(row)
 
-    os.remove(temp_training_filepath)
-    logging.info(f"✅ Released training data to: {new_training_real_filepath}")
+    # os.remove(temp_training_filepath)
+    # logging.info(f"✅ Released training data to: {new_training_real_filepath}")
     
 def on_press(key):
     global prev_timestamp
@@ -137,11 +137,10 @@ listener = None
 def listen_for_commands(release_type):
     global run_monitor
     for line in sys.stdin:
-        logging.info("std in")
         cmd = line.strip().lower()
         if cmd == "release":
             logging.info(f"Releasing {release_type} training data")
-            finalize_training_data(release_type)
+            # finalize_training_data(release_type)
         elif cmd == "stop monitoring":
             stop_monitoring()
         elif cmd == "start training":
@@ -159,7 +158,6 @@ def start_monitoring(mode="demo"):
         run_monitor = True
         monitor_thread = threading.Thread(target=monitor_keyboard_continuous, args=(mode,), daemon=True)
         monitor_thread.start()
-        logging.info("Keyboard monitoring thread started")
 
 def stop_monitoring():
     global run_monitor, listener

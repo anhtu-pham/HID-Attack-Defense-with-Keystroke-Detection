@@ -8,16 +8,45 @@ create_udev_rule() to permanently disable
 import os
 import subprocess
 import time
-import pyudev
 import logging
 from datetime import datetime
+import platform
+import sys 
 
-# Set up logging
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+
+if IS_LINUX:
+    try:
+        import pyudev
+    except ImportError:
+        logging.info("pyudev not found. Please install it via pip.")
+        exit(1)
+        
+# Determine log path
+log_path = (
+    "/var/log/keyboard-disabler.log" if IS_LINUX
+    else os.path.join(os.getenv("TEMP") or ".", "keyboard-disabler.log")
+)
+
+# Ensure parent directory exists
+log_dir = os.path.dirname(log_path)
+if not os.path.exists(log_dir):
+    logging.info("Parent Directory Doesnt Exist, Creating")
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except Exception as e:
+        logging.info(f"Failed to create log directory: {log_dir}\n{e}")
+        log_path = "keyboard-disabler.log"  # fallback to current dir
+
+# Now set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='/var/log/keyboard-disabler.log'
+    filename=log_path
 )
+
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 # Keep track of recently disabled devices to avoid duplicates
 # Format: {(vendor_id, product_id): timestamp}
@@ -202,7 +231,7 @@ ACTION=="add", ATTRS{{idVendor}}=="{vendor_id}", ATTRS{{idProduct}}=="{product_i
     except (IOError, OSError) as e:
         logging.error(f"Failed to create udev rule: {e}")
         return False
-
+    
 def is_duplicate_device(device_info):
     """Check if this device was recently disabled to avoid duplicates"""
     fingerprint = device_info['fingerprint']
@@ -221,60 +250,121 @@ def is_duplicate_device(device_info):
     recently_disabled[fingerprint] = current_time
     return False
 
+def extract_vendor_id(device_id):
+    # Extracts VID_1234
+    import re
+    match = re.search(r'VID_([0-9A-F]{4})', device_id, re.IGNORECASE)
+    return match.group(1) if match else "0000"
+
+def extract_product_id(device_id):
+    # Extracts PID_5678
+    import re
+    match = re.search(r'PID_([0-9A-F]{4})', device_id, re.IGNORECASE)
+    return match.group(1) if match else "0000"
+
 def detect_keyboards_and_callback(callback_function=None, stop_on_detection=False):
     """
-    Monitor for new keyboard connections with optional callback
-    
-    Args:
-        callback_function (callable, optional): Function to call when a new keyboard is detected.
-                                               This function will receive the device_info dictionary.
-        stop_on_detection (bool, optional): If True, stop monitoring after first detection and callback
-    
-    Returns:
-        None
+    Cross-platform: Monitor for new keyboard connections (Linux: via pyudev, Windows: via polling PowerShell)
     """
-    context = pyudev.Context()
-    monitor = pyudev.Monitor.from_netlink(context)
-    monitor.filter_by(subsystem='input')
-    
-    # Enable monitoring
-    monitor.start()
-    logging.info("Starting keyboard monitoring service")
-    print("Keyboard disabler service started. Monitoring for new keyboard devices...")
-    
-    # Monitor for new devices
-    for device in iter(monitor.poll, None):
-        if device.action == 'add' and is_keyboard(device):
-            device_info = get_device_info(device)
-            
-            # Skip if this is a duplicate detection
-            if is_duplicate_device(device_info):
-                logging.info(f"Skipping duplicate device: {device_info['name']} ({device_info['fingerprint']})")
-                continue
-            
-            logging.warning(f"New keyboard detected: {device_info['name']} ({device_info['vendor_id']}:{device_info['product_id']})")
-            print(f"New keyboard detected - {device_info['name']}")
-            
-            # If callback is provided, call it with the device info
-            if callback_function:
-                callback_function(device_info)
-                
-                # If stop_on_detection is True, break the loop after first detection
-                if stop_on_detection:
-                    break
+    if IS_LINUX:
+        context = pyudev.Context()
+        monitor = pyudev.Monitor.from_netlink(context)
+        monitor.filter_by(subsystem='input')
+        monitor.start()
+        logging.info("Linux: Starting keyboard monitoring service")
 
+        for device in iter(monitor.poll, None):
+            if device.action == 'add' and is_keyboard(device):
+                device_info = get_device_info(device)
+
+                if is_duplicate_device(device_info):
+                    logging.info(f"Skipping duplicate device: {device_info['name']} ({device_info['fingerprint']})")
+                    continue
+
+                logging.info(f"New keyboard detected: {device_info['name']} ({device_info['vendor_id']}:{device_info['product_id']})")
+                if callback_function:
+                    callback_function(device_info)
+                    if stop_on_detection:
+                        break
+
+    elif IS_WINDOWS:
+        logging.info("Windows: Starting polling-based keyboard detection")
+        known_devices = set()
+
+        while True:
+            try:
+
+                # Get all connected keyboard-class devices
+                result = subprocess.run(
+                    ['powershell', '-Command',
+                     'Get-PnpDevice -Class Keyboard | Select-Object -ExpandProperty InstanceId'],
+                    capture_output=True, text=True
+                )
+                
+
+                device_ids = set(result.stdout.strip().splitlines())
+    
+                new_devices = device_ids - known_devices
+                for device_id in new_devices:
+                    logging.info(f"New keyboard detected: {device_id}")
+                    device_info = {
+                        'name': device_id,
+                        'vendor_id': extract_vendor_id(device_id),
+                        'product_id': extract_product_id(device_id),
+                        'device_path': '',
+                        'serial': '',
+                        'fingerprint': device_id,
+                    }
+
+                    if not is_duplicate_device(device_info):
+                        if callback_function:
+                            callback_function(device_info)
+                        known_devices.add(device_id)
+                        if stop_on_detection:
+                            return
+
+                time.sleep(3)
+            except Exception as e:
+                logging.error(f"Error polling for keyboard devices on Windows: {e}")
+                time.sleep(5)
+                
 def blacklist_hid_device(device_info):
-    """Disable and blacklist a keyboard based on its device info"""
-    print(f"Attempting to blacklist keyboard: {device_info['name']}")
-    # Try to disable it by unbinding
-    if unbind_device(device_info):
-        print(f"Keyboard successfully disabled")
-        # Create persistent rule
-        if create_udev_rule(device_info):
-            print(f"Permanent udev rule created to block this device")
+    logging.info(f"Attempting to blacklist keyboard: {device_info.get('name', 'Unknown')}")
+
+    if IS_LINUX:
+        # Try to disable it by unbinding
+        if unbind_device(device_info):
+            logging.info(f"Keyboard successfully disabled")
+            if create_udev_rule(device_info):
+                logging.info(f"Permanent udev rule created to block this device")
+            else:
+                logging.info(f"Failed to create permanent udev rule")
+            return True
         else:
-            print(f"Failed to create permanent udev rule")
-        return True
-    else:
-        print(f"Failed to disable keyboard")
-        return False
+            logging.info(f"Failed to disable keyboard")
+            return False
+
+    elif IS_WINDOWS:
+        try:
+            # Use DevCon or PowerShell to disable the device (must be run as admin)
+            vendor_id = device_info.get("vendor_id", "")
+            product_id = device_info.get("product_id", "")
+            device_id = f"HID\\VID_{vendor_id}&PID_{product_id}"
+
+            logging.info(f"Trying to disable device using DevCon: {device_id}")
+            result = subprocess.run(['devcon', 'disable', device_id], capture_output=True, text=True)
+
+            if "disabled" in result.stdout.lower():
+                logging.info("Device successfully disabled.")
+                return True
+            else:
+                logging.info("Failed to disable device via devcon.")
+                logging.info(result.stdout)
+                return False
+        except Exception as e:
+            logging.info(f"Error disabling HID device on Windows: {e}")
+            return False
+# if IS_LINUX:
+#     subprocess.run(['udevadm', 'control', '--reload'], check=False)
+# elif IS_WINDOWS:
+#     subprocess.run(['devcon', 'disable', device_id], check=False)   
